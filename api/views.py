@@ -9,12 +9,12 @@ from .serializers import *
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny,])
 def signup(request):
-    serializer = Signup(data=request.data)
+    serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
         if user:
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            return Response({"response" : "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"response" : "error", "message" : {"HTTP_500" : "Internal server error"}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else:
         return Response({"response" : "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)

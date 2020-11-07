@@ -1,13 +1,15 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-import re
 
 from .models import *
 
 
-class Signup(serializers.ModelSerializer):
+class UserSerializer(serializers.Serializer):
 
+    email = serializers.EmailField(write_only=True)
+    first_name = serializers.CharField(write_only=True)
+    last_name = serializers.CharField(write_only=True)
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
     token = serializers.SerializerMethodField()
@@ -22,18 +24,8 @@ class Signup(serializers.ModelSerializer):
     def validate(self, data):
         if data['password1'] != data['password2']:
             raise serializers.ValidationError('Passwords must match')
-        if not data['email']:
-            raise serializers.ValidationError('Email is required')
         if User.objects.filter(email=data['email']).exists():
-            raise serializers.ValidationError('Email addresses must be unique')
-        if not data['first_name']:
-            raise serializers.ValidationError('First name is required')
-        if re.search(r"^[a-zA-Z]+$", data['first_name']):
-            raise serializers.ValidationError('First name must be alphabetic')
-        if not data['last_name']:
-            raise serializers.ValidationError('Last name is required')
-        if re.search(r"^[a-zA-Z]+$", data['last_name']):
-            raise serializers.ValidationError('Last name must be alphabetic')
+            raise serializers.ValidationError('An account with this email already exists')
         return data
 
     def create(self, validated_data):
@@ -44,7 +36,3 @@ class Signup(serializers.ModelSerializer):
         data['password'] = validated_data['password1']
         data['username'] = validated_data['email']
         return User.objects.create_user(**data)
-    
-    class Meta:
-        model = User
-        fields = ('id', 'email', 'first_name', 'last_name', 'password1', 'password2', 'token')
