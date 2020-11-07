@@ -1,29 +1,39 @@
-from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from rest_framework_jwt.settings import api_settings
+from rest_framework_simplejwt.tokens import RefreshToken
+import re
 
 from .models import *
 
 
 class Signup(serializers.ModelSerializer):
+
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
     token = serializers.SerializerMethodField()
 
-    def get_token(self, object):
-        jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
-        jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
-
-        payload = jwt_payload_handler(object)
-        token = jwt_encode_handler(payload)
-        return token
+    def get_token(self, user):
+        refresh = RefreshToken.for_user(user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
 
     def validate(self, data):
         if data['password1'] != data['password2']:
-            raise serializers.ValidationError('Passwords must match.')
-        if (data['email'] and User.objects.filter(email=data['email']).exclude(username=data['username']).exists()):
-            raise serializers.ValidationError('Email addresses must be unique.')
+            raise serializers.ValidationError('Passwords must match')
+        if not data['email']:
+            raise serializers.ValidationError('Email is required')
+        if User.objects.filter(email=data['email']).exists():
+            raise serializers.ValidationError('Email addresses must be unique')
+        if not data['first_name']:
+            raise serializers.ValidationError('First name is required')
+        if re.search(r"^[a-zA-Z]+$", data['first_name']):
+            raise serializers.ValidationError('First name must be alphabetic')
+        if not data['last_name']:
+            raise serializers.ValidationError('Last name is required')
+        if re.search(r"^[a-zA-Z]+$", data['last_name']):
+            raise serializers.ValidationError('Last name must be alphabetic')
         return data
 
     def create(self, validated_data):
@@ -32,14 +42,9 @@ class Signup(serializers.ModelSerializer):
             if key not in ('password1', 'password2')
         }
         data['password'] = validated_data['password1']
+        data['username'] = validated_data['email']
         return User.objects.create_user(**data)
     
     class Meta:
         model = User
-        fields = ('id', 'username', 'password1', 'password2', 'first_name', 'last_name', 'email', 'token')
-
-
-class CurrentUser(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email')
+        fields = ('id', 'email', 'first_name', 'last_name', 'password1', 'password2', 'token')
