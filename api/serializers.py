@@ -1,8 +1,13 @@
 from rest_framework import serializers
-
 from django.contrib.auth.models import User
 
 from .models import *
+
+
+class LoginSerializer(serializers.Serializer):
+
+    email = serializers.EmailField(write_only=True)
+    password = serializers.CharField(write_only=True)
 
 
 class UserSerializer(serializers.Serializer):
