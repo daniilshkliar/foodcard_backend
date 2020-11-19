@@ -21,31 +21,32 @@ def signup(request):
         user = serializer.save(is_active=False)
         if user:
             activationToken = PasswordResetTokenGenerator()
-
-            subject = 'Activate your FOODCARD account'
             plain_message = f"""
                 Hi {user.first_name}.
                 Please click on the link below to confirm your registration:
                 {settings.CORS_ORIGIN_WHITELIST[0]}/activate/{urlsafe_base64_encode(force_bytes(user.pk))}/{activationToken.make_token(user)}/
                 """
+            subject = 'Activate your FOODCARD account'
             from_email = settings.EMAIL_HOST_USER
             to = user.email
-
             send_mail(subject, plain_message, from_email, [to])
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            return Response({"response" : "error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"response": "error", "message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else:
-        return Response({"response" : "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"response": "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny,])
 def activateAccount(request, uidb64, utoken):
-    uid = urlsafe_base64_decode(uidb64)
-    user = User.objects.get(pk=uid)
+    try:
+        uid = urlsafe_base64_decode(uidb64)
+        user = User.objects.get(pk=uid)
+    except(TypeError, ValueError):
+        user = None
+        
     activationToken = PasswordResetTokenGenerator()
-
     if user and activationToken.check_token(user, utoken):
         user.is_active = True
         user.save()
@@ -56,7 +57,7 @@ def activateAccount(request, uidb64, utoken):
         response.data = {'access': str(tokens.access_token)}
         return response
     else:
-        return Response({"response" : "error"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -70,7 +71,7 @@ def login(request):
         response.data = {'access': str(serializer.data['tokens'].access_token)}
         return response
     else:
-        return Response({"response" : "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"response": "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

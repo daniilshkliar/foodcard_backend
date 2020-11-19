@@ -14,6 +14,6 @@ from .serializers import *
 
 
 @api_view(['GET'])
-@permission_classes([permissions.AllowAny,])
+@permission_classes([permissions.IsAuthenticated,])
 def getPlace(request, id):
     return Response({"response": id}, status=status.HTTP_200_OK)

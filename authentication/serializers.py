@@ -33,7 +33,7 @@ class SignupSerializer(serializers.Serializer):
     def validate(self, data):
         if data['password1'] != data['password2']:
             raise serializers.ValidationError('Passwords must match')
-        if User.objects.get(email=data['email']):
+        if User.objects.filter(email=data['email']).first():
             raise serializers.ValidationError('An account with this email already exists')
         return data
 
