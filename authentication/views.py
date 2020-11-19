@@ -1,14 +1,13 @@
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework import permissions, status
+from rest_framework import permissions, status, exceptions
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.mail import send_mail
-from django.conf import settings
-from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.contrib.auth.models import User
-from rest_framework import exceptions
 
 from .models import *
 from .serializers import *
@@ -17,7 +16,7 @@ from .serializers import *
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny,])
 def signup(request):
-    serializer = UserSerializer(data=request.data)
+    serializer = SignupSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save(is_active=False)
         if user:
@@ -65,16 +64,11 @@ def activateAccount(request, uidb64, utoken):
 def login(request):
     serializer = LoginSerializer(data=request.data)
     if serializer.is_valid():
-        user = User.objects.filter(email=request.data.get('email')).first()
-        if user and user.check_password(request.data.get('password')):
-            tokens = RefreshToken.for_user(user)
-            max_age = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
-            response = Response()
-            response.set_cookie(key='refresh', value=tokens, httponly=True, max_age=max_age)
-            response.data = {'access': str(tokens.access_token)}
-            return response
-        else:
-            raise exceptions.AuthenticationFailed('No active account found with the given credentials')
+        max_age = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
+        response = Response()
+        response.set_cookie(key='refresh', value=serializer.data['tokens'], httponly=True, max_age=max_age)
+        response.data = {'access': str(serializer.data['tokens'].access_token)}
+        return response
     else:
         return Response({"response" : "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -90,9 +84,3 @@ def token_refresh(request):
     response.set_cookie(key='refresh', value=str(tokens), httponly=True, max_age=max_age)
     response.data = {'access': str(tokens.access_token)}
     return response
-
-
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated,])
-def isit(request):
-    return Response({"response": "yes"}, status=status.HTTP_200_OK)

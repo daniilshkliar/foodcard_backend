@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import *
 
@@ -8,9 +9,20 @@ class LoginSerializer(serializers.Serializer):
 
     email = serializers.EmailField(write_only=True)
     password = serializers.CharField(write_only=True)
+    tokens = serializers.SerializerMethodField()
+
+    def validate(self, data):
+        user = User.objects.filter(email=data['email']).first()
+        if not user or not user.check_password(data['password']):
+            raise serializers.ValidationError('No active account found with the given credentials')
+        return data
+
+    def get_tokens(self, obj):
+        user = User.objects.get(email=obj['email'])
+        return RefreshToken.for_user(user)
 
 
-class UserSerializer(serializers.Serializer):
+class SignupSerializer(serializers.Serializer):
 
     email = serializers.EmailField(write_only=True)
     first_name = serializers.CharField(write_only=True)
@@ -21,7 +33,7 @@ class UserSerializer(serializers.Serializer):
     def validate(self, data):
         if data['password1'] != data['password2']:
             raise serializers.ValidationError('Passwords must match')
-        if User.objects.filter(email=data['email']).exists():
+        if User.objects.get(email=data['email']):
             raise serializers.ValidationError('An account with this email already exists')
         return data
 
