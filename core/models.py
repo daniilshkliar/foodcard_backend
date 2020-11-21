@@ -1,59 +1,54 @@
-from djongo import models
+from datetime import datetime
+from mongoengine import Document, EmbeddedDocument, fields, PULL
 
 
-class Category(models.Model):
-    _id = models.ObjectIdField()
-    title = models.CharField(max_length=20, unique=True)
+class Category(Document):
+    title = fields.StringField(required=True, max_length=50, unique=True)
+
+
+class Cuisine(Document):
+    title = fields.StringField(required=True, max_length=50, unique=True)
+
+
+class AdditionalService(Document):
+    title = fields.StringField(required=True, max_length=50, unique=True)
+
+
+class Coordinates(EmbeddedDocument):
+    latitude = fields.DecimalField(min_value=-90, max_value=90, precision=7)
+    longitude = fields.DecimalField(min_value=-180, max_value=180, precision=7)
+
+
+class Address(EmbeddedDocument):
+    country = fields.StringField(required=True, max_length=50)
+    city = fields.StringField(required=True, max_length=50)
+    street = fields.StringField(required=True, max_length=50)
+    coordinates = fields.EmbeddedDocumentField(Coordinates)
+
+
+class GeneralReview(EmbeddedDocument):
+    rating = fields.DecimalField(min_value=0, max_value=5, precision=1)
+    food = fields.DecimalField(min_value=0, max_value=5, precision=1)
+    service = fields.DecimalField(min_value=0, max_value=5, precision=1)
+    ambience = fields.DecimalField(min_value=0, max_value=5, precision=1)
+    noise = fields.StringField(max_length=10)
+    amount = fields.IntField(default=0, min_value=0)
+    distribution = fields.ListField(field=fields.IntField(default=0, min_value=0), max_length=5)
+
+
+class Place(Document):
+    title = fields.StringField(required=True, max_length=70)
+    categories = fields.ListField(fields.ReferenceField('Category', reverse_delete_rule=PULL), required=True)
+    cuisines = fields.ListField(fields.ReferenceField('Cuisine', reverse_delete_rule=PULL))
+    additional = fields.ListField(fields.ReferenceField('AdditionalService', reverse_delete_rule=PULL))
+    description = fields.StringField(required=True)
+    phone = fields.StringField(required=True, max_length=20)
+    instagram = fields.URLField()
+    website = fields.URLField()
+    rounded_rating = fields.IntField(min_value=0, max_value=5)
+    operation_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7)
+    general_review = fields.EmbeddedDocumentField(GeneralReview)
+    address = fields.EmbeddedDocumentField(Address)
+    photos = fields.ListField(fields.ImageField(collection_name='photo'))
     
-
-class Cuisine(models.Model):
-    _id = models.ObjectIdField()
-    title = models.CharField(max_length=30, unique=True)
-    
-
-class AdditionalService(models.Model):
-    _id = models.ObjectIdField()
-    title = models.CharField(max_length=50, unique=True)
-
-
-class Address(models.Model):
-    country = models.CharField(max_length=30)
-    city = models.CharField(max_length=30)
-    street = models.CharField(max_length=70)
-    # coordinates = models.ArrayField(models.DecimalField())
-    
-    class Meta:
-        abstract = True
-
-
-class GeneralReview(models.Model):
-    rating = models.DecimalField(max_digits=2, decimal_places=1)
-    food = models.DecimalField(max_digits=2, decimal_places=1)
-    service = models.DecimalField(max_digits=2, decimal_places=1)
-    ambience = models.DecimalField(max_digits=2, decimal_places=1)
-    noise = models.CharField(max_length=10)
-    amount = models.IntegerField()
-    # distribution = models.ArrayField(models.IntegerField())
-
-    class Meta:
-        abstract = True
-
-
-class Place(models.Model):
-    _id = models.ObjectIdField()
-    title = models.CharField(max_length=70)
-    categories = models.ArrayReferenceField(to=Category, on_delete=models.CASCADE)
-    cuisines = models.ArrayReferenceField(to=Cuisine, on_delete=models.CASCADE)
-    additional = models.ArrayReferenceField(to=AdditionalService, on_delete=models.CASCADE)
-    description = models.TextField()
-    phone = models.CharField(max_length=20)
-    instagram = models.URLField()
-    website = models.URLField()
-    rounded_rating = models.IntegerField()
-    general_review = models.EmbeddedField(model_container=GeneralReview)
-    address = models.EmbeddedField(model_container=Address)
-    # operation_hours = models.ArrayField(models.TimeField())
-    # photos = models.ArrayField(models.ImageField(upload_to='photo'))
-    
-    objects = models.DjongoManager()
 	# table2 = models.IntegerField()

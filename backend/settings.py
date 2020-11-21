@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 
 import os
 from datetime import timedelta
+import mongoengine
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_mongoengine',
     'corsheaders',
     'authentication',
     'core',
@@ -121,6 +123,10 @@ DATABASES = {
     }
 }
 
+mongoengine.connect(
+    db='foodcard',
+    host='mongodb+srv://admin:1q2w3e4r5t@foodcard.00gwj.mongodb.net/foodcard?retryWrites=true&w=majority'
+)
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
