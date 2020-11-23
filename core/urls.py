@@ -4,5 +4,5 @@ from . import views
 
 
 urlpatterns = [
-    path('upload/place/', views.PlaceSetter.as_view()),
+    path('get_place/<title>/', views.PlaceViewSet.as_view({'get': 'retrieve'})),
 ]
