@@ -4,5 +4,5 @@ from . import views
 
 
 urlpatterns = [
-    path('get_place/<title>/', views.PlaceViewSet.as_view({'get': 'retrieve'})),
+    path('get_place/<slug:city>/<slug:title>/', views.PlaceViewSet.as_view({'get': 'retrieve'})),
 ]

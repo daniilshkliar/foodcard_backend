@@ -17,6 +17,7 @@
 # import json
 # from mongoengine import Document
 import json
+import mongoengine
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.response import Response
@@ -33,11 +34,14 @@ class PlaceViewSet(MongoModelViewSet):
     serializer_class = PlaceSerializer
     permission_classes = [AllowAny,]
 
-    def retrieve(self, request, title=None):
-        place = Place.objects.exclude('id').get(title=title)
-        data = json.loads(place.to_json())
-        data['categories'] = [obj.title for obj in place.categories]
-        return Response(data, status=status.HTTP_200_OK)
+    def retrieve(self, request, city=None, title=None):
+        try:
+            place = self.queryset.get(title=title.capitalize(), address__city=city.capitalize())
+            data = json.loads(place.to_json())
+            data['categories'] = [category.title for category in place.categories]
+            return Response(data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class CategoryViewSet(MongoModelViewSet):

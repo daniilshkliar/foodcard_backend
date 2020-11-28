@@ -5,12 +5,14 @@ from .models import *
 
 
 class PlaceSerializer(mongoserializers.DocumentSerializer):
+
     class Meta:
         model = Place
         fields = '__all__'
 
 
 class CategorySerializer(mongoserializers.DocumentSerializer):
+    
     class Meta:
         model = Category
         fields = '__all__'
