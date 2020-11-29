@@ -1,30 +1,30 @@
 from datetime import datetime
 from bson import json_util
-from mongoengine import Document, EmbeddedDocument, fields, PULL
+from mongoengine import Document, EmbeddedDocument, fields, PULL, CASCADE
 
 
 class Category(Document):
-    title           = fields.StringField(required=True, max_length=50, unique=True)
+    title       = fields.StringField(required=True, max_length=50, unique=True)
 
 
 class Cuisine(Document):
-    title           = fields.StringField(required=True, max_length=50, unique=True)
+    title       = fields.StringField(required=True, max_length=50, unique=True)
 
 
 class AdditionalService(Document):
-    title           = fields.StringField(required=True, max_length=50, unique=True)
+    title       = fields.StringField(required=True, max_length=50, unique=True)
 
 
 class Coordinates(EmbeddedDocument):
-    latitude        = fields.DecimalField(min_value=-90, max_value=90, precision=7)
-    longitude       = fields.DecimalField(min_value=-180, max_value=180, precision=7)
+    latitude    = fields.DecimalField(min_value=-90, max_value=90, precision=7)
+    longitude   = fields.DecimalField(min_value=-180, max_value=180, precision=7)
 
 
 class Address(EmbeddedDocument):
-    country         = fields.StringField(required=True, max_length=50)
-    city            = fields.StringField(required=True, max_length=50)
-    street          = fields.StringField(required=True, max_length=50)
-    coordinates     = fields.EmbeddedDocumentField(Coordinates)
+    country     = fields.StringField(required=True, max_length=50)
+    city        = fields.StringField(required=True, max_length=50)
+    street      = fields.StringField(required=True, max_length=50)
+    coordinates = fields.EmbeddedDocumentField(Coordinates)
 
 
 class GeneralReview(EmbeddedDocument):
@@ -52,3 +52,8 @@ class Place(Document):
     address             = fields.EmbeddedDocumentField(Address)
     photos              = fields.ListField(fields.ImageField(collection_name='photo'))
 	# table2 = models.IntegerField()
+
+
+class Favorite(Document):
+    user_id = fields.IntField(min_value=0, required=True)
+    place = fields.ReferenceField('Place', reverse_delete_rule=CASCADE, required=True)

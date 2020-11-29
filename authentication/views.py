@@ -66,7 +66,7 @@ def signup(request):
 def activateAccount(request, uidb64, utoken):
     try:
         uid = urlsafe_base64_decode(uidb64).decode()
-        user = User.objects.get(pk=uid)
+        user = get_object_or_404(User, pk=uid)
     except(TypeError, ValueError):
         user = None
         

@@ -18,6 +18,8 @@
 # from mongoengine import Document
 import json
 import mongoengine
+from django.shortcuts import get_object_or_404
+from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.response import Response
@@ -44,8 +46,46 @@ class PlaceViewSet(MongoModelViewSet):
             return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
-class CategoryViewSet(MongoModelViewSet):
+class FavoriteViewSet(MongoModelViewSet):
 
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-    permission_classes = [AllowAny,]
+    queryset = Favorite.objects.all()
+    serializer_class = FavoriteSerializer
+    permission_classes = [IsAuthenticated,]
+
+    def list(self, request):
+        try:
+            uid = json.loads(urlsafe_base64_decode(request.META['HTTP_AUTHORIZATION'].split('.')[1]).decode())['user_id']
+            user = get_object_or_404(User, pk=uid)
+        except(TypeError, ValueError):
+            user = None
+        
+        if user:
+            favorites = self.queryset(user_id=uid)
+            serializer = self.get_serializer(favorites, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def create(self, request, city=None, title=None):
+        try:
+            uid = json.loads(urlsafe_base64_decode(request.META['HTTP_AUTHORIZATION'].split('.')[1]).decode())['user_id']
+            user = get_object_or_404(User, pk=uid)
+        except(TypeError, ValueError):
+            user = None
+
+        try:
+            place = Place.objects.get(title=title.capitalize(), address__city=city.capitalize())
+        except mongoengine.DoesNotExist:
+            return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        if user and place:
+            favorite = Favorite()
+            favorite.user_id = uid
+            favorite.place = place
+            favorite.save()
+            return Response(json.loads(favorite.to_json()), status=status.HTTP_201_CREATED)
+        else:
+            return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        pass
