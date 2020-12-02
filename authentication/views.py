@@ -3,7 +3,7 @@ from rest_framework import permissions, status, exceptions
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, Token
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -23,15 +23,9 @@ class UserViewSet(MongoModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated,]
 
-    def retrieve(self, request):
-        try:
-            uid = json.loads(urlsafe_base64_decode(request.META['HTTP_AUTHORIZATION'].split('.')[1]).decode())['user_id']
-            user = get_object_or_404(self.queryset, pk=uid)
-        except(TypeError, ValueError):
-            user = None
-            
-        if user:
-            serializer = self.get_serializer(user)
+    def retrieve(self, request):            
+        if request.user:
+            serializer = self.get_serializer(request.user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)

@@ -36,11 +36,14 @@ class PlaceViewSet(MongoModelViewSet):
     serializer_class = PlaceSerializer
     permission_classes = [AllowAny,]
 
+    def list(self, request):
+        data = [json.loads(place.to_json(follow_reference=True)) for place in self.queryset]
+        return Response(data, status=status.HTTP_200_OK)
+
     def retrieve(self, request, city=None, title=None):
         try:
             place = self.queryset.get(title=title.capitalize(), address__city=city.capitalize())
-            data = json.loads(place.to_json())
-            data['categories'] = [category.title for category in place.categories]
+            data = json.loads(place.to_json(follow_reference=True))
             return Response(data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
             return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -53,39 +56,28 @@ class FavoriteViewSet(MongoModelViewSet):
     permission_classes = [IsAuthenticated,]
 
     def list(self, request):
-        try:
-            uid = json.loads(urlsafe_base64_decode(request.META['HTTP_AUTHORIZATION'].split('.')[1]).decode())['user_id']
-            user = get_object_or_404(User, pk=uid)
-        except(TypeError, ValueError):
-            user = None
-        
-        if user:
-            favorites = self.queryset(user_id=uid)
-            serializer = self.get_serializer(favorites, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        if request.user:
+            favorites = self.queryset(user_id=request.user.id)
+            data = [{'title': fav.place.title, 'city': fav.place.address.city} for fav in favorites]
+            return Response(data, status=status.HTTP_200_OK)
         else:
             return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
 
-    def create(self, request, city=None, title=None):
+    def handle(self, request, place_id=None):
         try:
-            uid = json.loads(urlsafe_base64_decode(request.META['HTTP_AUTHORIZATION'].split('.')[1]).decode())['user_id']
-            user = get_object_or_404(User, pk=uid)
-        except(TypeError, ValueError):
-            user = None
-
-        try:
-            place = Place.objects.get(title=title.capitalize(), address__city=city.capitalize())
+            place = Place.objects.get(id=place_id)
         except mongoengine.DoesNotExist:
             return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        if user and place:
-            favorite = Favorite()
-            favorite.user_id = uid
-            favorite.place = place
-            favorite.save()
-            return Response(json.loads(favorite.to_json()), status=status.HTTP_201_CREATED)
+        if request.user and place:
+            if favorite := self.queryset(user_id=request.user.id, place=place):
+                favorite.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:   
+                favorite = Favorite()
+                favorite.user_id = request.user.id
+                favorite.place = place
+                favorite.save()
+                return Response(status=status.HTTP_201_CREATED)
         else:
             return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
-
-    def destroy(self, request, pk=None):
-        pass
