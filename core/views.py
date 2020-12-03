@@ -31,26 +31,24 @@ from .serializers import *
 
 
 class PlaceViewSet(MongoModelViewSet):
-
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
     permission_classes = [AllowAny,]
 
     def list(self, request):
-        data = [json.loads(place.to_json(follow_reference=True)) for place in self.queryset]
-        return Response(data, status=status.HTTP_200_OK)
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, city=None, title=None):
         try:
             place = self.queryset.get(title=title.capitalize(), address__city=city.capitalize())
-            data = json.loads(place.to_json(follow_reference=True))
-            return Response(data, status=status.HTTP_200_OK)
+            serializer = self.get_serializer(place)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
             return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class FavoriteViewSet(MongoModelViewSet):
-
     queryset = Favorite.objects.all()
     serializer_class = FavoriteSerializer
     permission_classes = [IsAuthenticated,]
@@ -58,8 +56,8 @@ class FavoriteViewSet(MongoModelViewSet):
     def list(self, request):
         if request.user:
             favorites = self.queryset(user_id=request.user.id)
-            data = [{'title': fav.place.title, 'city': fav.place.address.city} for fav in favorites]
-            return Response(data, status=status.HTTP_200_OK)
+            serializer = self.get_serializer(favorites, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
 

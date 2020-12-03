@@ -4,14 +4,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class UserSerializer(serializers.ModelSerializer):
-    
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'is_superuser']
+        fields = ('id', 'email', 'first_name', 'last_name', 'is_superuser',)
 
 
 class LoginSerializer(serializers.Serializer):
-
     email = serializers.EmailField(write_only=True)
     password = serializers.CharField(write_only=True)
     tokens = serializers.SerializerMethodField()
@@ -28,7 +26,6 @@ class LoginSerializer(serializers.Serializer):
 
 
 class SignupSerializer(serializers.Serializer):
-
     email = serializers.EmailField(write_only=True)
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)

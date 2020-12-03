@@ -18,7 +18,6 @@ from .serializers import *
 
 
 class UserViewSet(MongoModelViewSet):
-    
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated,]
