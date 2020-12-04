@@ -1,21 +1,3 @@
-# from django.contrib.auth import get_user_model
-# from django.core import serializers as sr
-# from rest_framework.views import APIView
-# from rest_framework import viewsets
-# from rest_framework.decorators import api_view, permission_classes
-# from rest_framework_simplejwt.views import TokenObtainPairView
-# from rest_framework_simplejwt.tokens import RefreshToken
-# from django.http import HttpResponseRedirect, HttpResponse
-# from rest_framework.parsers import MultiPartParser, FormParser
-# import base64
-# from django.db.models import Q
-# from django.db import connection
-# from django.http import JsonResponse
-# import datetime
-# from io import BytesIO
-# from reportlab.pdfgen import canvas
-# import json
-# from mongoengine import Document
 import json
 import mongoengine
 from django.shortcuts import get_object_or_404
@@ -45,7 +27,7 @@ class PlaceViewSet(MongoModelViewSet):
             serializer = self.get_serializer(place)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
-            return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
 
 class FavoriteViewSet(MongoModelViewSet):
@@ -54,28 +36,22 @@ class FavoriteViewSet(MongoModelViewSet):
     permission_classes = [IsAuthenticated,]
 
     def list(self, request):
-        if request.user:
-            favorites = self.queryset(user_id=request.user.id)
-            serializer = self.get_serializer(favorites, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
+        favorites = self.queryset(user_id=request.user.id)
+        serializer = self.get_serializer(favorites, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def handle(self, request, place_id=None):
         try:
             place = Place.objects.get(id=place_id)
         except mongoengine.DoesNotExist:
-            return Response({"response": "error", "message" : "Not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_404_NOT_FOUND)
         
-        if request.user and place:
-            if favorite := self.queryset(user_id=request.user.id, place=place):
-                favorite.delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            else:   
-                favorite = Favorite()
-                favorite.user_id = request.user.id
-                favorite.place = place
-                favorite.save()
-                return Response(status=status.HTTP_201_CREATED)
+        if favorite := self.queryset(user_id=request.user.id, place=place):
+            favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-            return Response({"response": "error", "message" : "Bad request"}, status=status.HTTP_400_BAD_REQUEST)
+            favorite = Favorite()
+            favorite.user_id = request.user.id
+            favorite.place = place
+            favorite.save()
+            return Response(status=status.HTTP_201_CREATED)

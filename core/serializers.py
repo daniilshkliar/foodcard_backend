@@ -1,6 +1,6 @@
+from mongoengine import fields
 from rest_framework import serializers
 from rest_framework_mongoengine import serializers as mongoserializers
-from mongoengine import fields
 
 from .models import *
 
