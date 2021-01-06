@@ -22,6 +22,9 @@ class UserViewSet(MongoModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated,]
 
+    def check_login(self, request):
+        return Response(status=status.HTTP_200_OK)
+
     def retrieve(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -37,7 +40,7 @@ def signup(request):
         plain_message = f"""
             Hi {user.first_name}.
             Please click on the link below to confirm your registration:
-            {settings.CORS_ORIGIN_WHITELIST[0]}/activate/{urlsafe_base64_encode(force_bytes(user.pk)).decode()}/{activationToken.make_token(user)}/
+            {settings.CORS_ORIGIN_WHITELIST[0]}/activate/{urlsafe_base64_encode(force_bytes(user.pk))}/{activationToken.make_token(user)}/
             """
         subject = 'Activate your FOODCARD account'
         from_email = settings.EMAIL_HOST_USER
@@ -64,8 +67,8 @@ def activate_account(request, uidb64, utoken):
         access_max_age = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()
         refresh_max_age = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
         response = Response()
-        response.set_cookie(key='access', value=tokens.access_token, httponly=True, max_age=access_max_age)
-        response.set_cookie(key='refresh', value=tokens, httponly=True, max_age=refresh_max_age)
+        response.set_cookie(key=settings.SIMPLE_JWT['ACCESS_COOKIE_NAME'], value=tokens.access_token, httponly=True, max_age=access_max_age)
+        response.set_cookie(key=settings.SIMPLE_JWT['REFRESH_COOKIE_NAME'], value=tokens, httponly=True, max_age=refresh_max_age)
         return response
     else:
         return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -79,25 +82,36 @@ def login(request):
         access_max_age = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()
         refresh_max_age = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
         response = Response()
-        response.set_cookie(key='access', value=serializer.data['tokens'].access_token, httponly=True, max_age=access_max_age)
-        response.set_cookie(key='refresh', value=serializer.data['tokens'], httponly=True, max_age=refresh_max_age)
+        response.set_cookie(key=settings.SIMPLE_JWT['ACCESS_COOKIE_NAME'], value=serializer.data['tokens'].access_token, httponly=True, max_age=access_max_age)
+        response.set_cookie(key=settings.SIMPLE_JWT['REFRESH_COOKIE_NAME'], value=serializer.data['tokens'], httponly=True, max_age=refresh_max_age)
         return response
     else:
         return Response({"response": "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated,])
+def logout(request):
+    response = Response()
+    response.delete_cookie(settings.SIMPLE_JWT['ACCESS_COOKIE_NAME'])
+    response.delete_cookie(settings.SIMPLE_JWT['REFRESH_COOKIE_NAME'])
+    return response
+
+
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny,])
 def refresh_tokens(request):
-    tokens = RefreshToken(request.COOKIES.get('refresh'))
-    if tokens:
-        tokens.set_jti()
-        tokens.set_exp()
-        access_max_age = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()
-        refresh_max_age = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
-        response = Response()
-        response.set_cookie(key='access', value=tokens.access_token, httponly=True, max_age=access_max_age)
-        response.set_cookie(key='refresh', value=tokens, httponly=True, max_age=refresh_max_age)
-        return response
+    if refresh_token := request.COOKIES.get('refresh'):
+        if tokens := RefreshToken(refresh_token):
+            tokens.set_jti()
+            tokens.set_exp()
+            access_max_age = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()
+            refresh_max_age = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
+            response = Response()
+            response.set_cookie(key=settings.SIMPLE_JWT['ACCESS_COOKIE_NAME'], value=tokens.access_token, httponly=True, max_age=access_max_age)
+            response.set_cookie(key=settings.SIMPLE_JWT['REFRESH_COOKIE_NAME'], value=tokens, httponly=True, max_age=refresh_max_age)
+            return response
+        else:
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     else:
         return Response(status=status.HTTP_400_BAD_REQUEST)

@@ -72,9 +72,10 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=15),
     'ACCESS_COOKIE_NAME': 'access',
+    'REFRESH_COOKIE_NAME': 'refresh',
 }
 
 CORS_ORIGIN_ALLOW_ALL = True
