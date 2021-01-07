@@ -6,18 +6,70 @@ from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from backend.permissions import IsAdminUserOrReadOnly
 from rest_framework_mongoengine.viewsets import ModelViewSet as MongoModelViewSet
 
 from .models import *   
 from .serializers import *
 
 
+class DocumentListViewSet(MongoModelViewSet):
+    permission_classes = [IsAdminUserOrReadOnly,]
+
+    def list(self, request):
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def create(self, request):
+        try:
+            obj = self.model(title=request.data['title'].capitalize())
+            obj.save()
+            serializer = self.get_serializer(obj)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except mongoengine.errors.NotUniqueError:
+            return Response({'message': 'This ' + self.desciption + ' already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        pass
+
+    def destroy(self, request, pk=None):
+        try:
+            obj = self.queryset.get(id=pk)
+            obj.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except mongoengine.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+
+class CategoryViewSet(DocumentListViewSet):
+    model = Category
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    desciption = 'category'
+
+
+class CuisineViewSet(DocumentListViewSet):
+    model = Cuisine
+    queryset = Cuisine.objects.all()
+    serializer_class = CuisineSerializer
+    desciption = 'cuisine'
+
+
+class AdditionalServiceViewSet(DocumentListViewSet):
+    model = AdditionalService
+    queryset = AdditionalService.objects.all()
+    serializer_class = AdditionalServiceSerializer
+    desciption = 'additional service'
+
+
 class PlaceViewSet(MongoModelViewSet):
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
-    permission_classes = [AllowAny,]
+    permission_classes = [IsAdminUserOrReadOnly,]
 
-    def list(self, request):
+    def list(self, request):#cards
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -26,6 +78,31 @@ class PlaceViewSet(MongoModelViewSet):
             place = self.queryset.get(title=title.capitalize(), address__city=city.capitalize())
             serializer = self.get_serializer(place)
             return Response(serializer.data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    def create(self, request):
+        try:
+            # through serializer validation
+            place = Place()
+            place.title = request.data['title'].capitalize()
+            place.phone = request.data['phone']
+            place.save()
+            serializer = self.get_serializer(place)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except mongoengine.errors.NotUniqueError:
+            return Response({'message': 'This place already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        pass
+
+    def destroy(self, request, pk=None):
+        try:
+            place = self.queryset.get(id=pk)
+            place.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         except mongoengine.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -40,9 +117,9 @@ class FavoriteViewSet(MongoModelViewSet):
         serializer = self.get_serializer(favorites, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def handle(self, request, place_id=None):
+    def handle(self, request, pk=None):
         try:
-            place = Place.objects.get(id=place_id)
+            place = Place.objects.get(id=pk)
         except mongoengine.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         

@@ -48,7 +48,7 @@ def signup(request):
         send_mail(subject, plain_message, from_email, [to_email])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
-        return Response({"response": "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -86,7 +86,7 @@ def login(request):
         response.set_cookie(key=settings.SIMPLE_JWT['REFRESH_COOKIE_NAME'], value=serializer.data['tokens'], httponly=True, max_age=refresh_max_age)
         return response
     else:
-        return Response({"response": "error", "message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message" : serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])

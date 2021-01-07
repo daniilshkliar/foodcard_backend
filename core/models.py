@@ -38,12 +38,12 @@ class GeneralReview(gj.EmbeddedDocument):
 
 
 class Place(gj.Document):
-    title = fields.StringField(required=True, max_length=70)
-    categories = fields.ListField(fields.ReferenceField(Category, reverse_delete_rule=PULL), required=True, default=None)
+    title = fields.StringField(required=True, max_length=70, unique=True)
+    categories = fields.ListField(fields.ReferenceField(Category, reverse_delete_rule=PULL), default=None)
     cuisines = fields.ListField(fields.ReferenceField(Cuisine, reverse_delete_rule=PULL), default=None)
     additional = fields.ListField(fields.ReferenceField(AdditionalService, reverse_delete_rule=PULL), default=None)
-    description = fields.StringField(required=True)
-    phone = fields.StringField(required=True, max_length=20)
+    description = fields.StringField(max_length=1000)
+    phone = fields.StringField(required=True, max_length=20, unique=True)
     instagram = fields.URLField()
     website = fields.URLField()
     rounded_rating = fields.IntField(min_value=0, max_value=5)

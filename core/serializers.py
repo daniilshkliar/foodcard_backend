@@ -12,6 +12,24 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
         depth = 2
 
 
+class CategorySerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
+
+
+class CuisineSerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = Cuisine
+        fields = '__all__'
+
+
+class AdditionalServiceSerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = AdditionalService
+        fields = '__all__'
+
+
 class CitySerializer(mongoserializers.EmbeddedDocumentSerializer):
     class Meta:
         model = Address
