@@ -23,4 +23,5 @@ urlpatterns = [
     path('additional_service/create/', views.AdditionalServiceViewSet.as_view({'post': 'create'})),
     path('additional_service/update/<slug:pk>/', views.AdditionalServiceViewSet.as_view({'post': 'update'})),
     path('additional_service/delete/<slug:pk>/', views.AdditionalServiceViewSet.as_view({'post': 'destroy'})),
+    path('photo/get/<str:pk>/', views.get_photo),
 ]

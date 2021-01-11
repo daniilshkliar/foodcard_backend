@@ -1,5 +1,7 @@
 import json
 import mongoengine
+from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.models import User
@@ -21,15 +23,40 @@ class DocumentListViewSet(MongoModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     def create(self, request):
-        try:
-            obj = self.model(title=request.data['title'].capitalize())
-            obj.save()
-            serializer = self.get_serializer(obj)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except mongoengine.errors.NotUniqueError:
-            return Response({'message': 'This ' + self.desciption + ' already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError:
-            return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+        if isinstance(request.data, list):
+            messages = []
+            for data in request.data:
+                try:
+                    obj = self.model(title=data['title'].capitalize())
+                    obj.save()
+                    serializer = self.get_serializer(obj)
+                    messages.append({
+                        'status': status.HTTP_201_CREATED,
+                        self.desrciption: serializer.data
+                    })
+                except mongoengine.errors.NotUniqueError:
+                    messages.append({
+                        'status': status.HTTP_400_BAD_REQUEST,
+                        'title': data['title'],
+                        'message': 'This ' + self.desrciption + ' already exists'
+                    })
+                except mongoengine.errors.ValidationError:
+                    messages.append({
+                        'status': status.HTTP_400_BAD_REQUEST,
+                        'title': data['title'],
+                        'message': 'Validation error'
+                    })
+            return Response(messages, status=status.HTTP_200_OK)
+        else:
+            try:
+                obj = self.model(title=request.data['title'].capitalize())
+                obj.save()
+                serializer = self.get_serializer(obj)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except mongoengine.errors.NotUniqueError:
+                return Response({'message': 'This ' + self.desrciption + ' already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            except mongoengine.errors.ValidationError:
+                return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         pass
@@ -47,29 +74,29 @@ class CategoryViewSet(DocumentListViewSet):
     model = Category
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    desciption = 'category'
+    desrciption = 'category'
 
 
 class CuisineViewSet(DocumentListViewSet):
     model = Cuisine
     queryset = Cuisine.objects.all()
     serializer_class = CuisineSerializer
-    desciption = 'cuisine'
+    desrciption = 'cuisine'
 
 
 class AdditionalServiceViewSet(DocumentListViewSet):
     model = AdditionalService
     queryset = AdditionalService.objects.all()
     serializer_class = AdditionalServiceSerializer
-    desciption = 'additional service'
+    desrciption = 'additional service'
 
 
 class PlaceViewSet(MongoModelViewSet):
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
-    permission_classes = [IsAdminUserOrReadOnly,]
+    permission_classes = [IsAdminUserOrReadOnly,] # allow to managers, not only admins
 
-    def list(self, request):#cards
+    def list(self, request): # cards
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -83,10 +110,12 @@ class PlaceViewSet(MongoModelViewSet):
 
     def create(self, request):
         try:
-            # through serializer validation
             place = Place()
             place.title = request.data['title'].capitalize()
             place.phone = request.data['phone']
+            review = GeneralReview()
+            review.save()
+            place.general_review = review
             place.save()
             serializer = self.get_serializer(place)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -96,7 +125,17 @@ class PlaceViewSet(MongoModelViewSet):
             return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
-        pass
+        try:
+            place = self.queryset.get(id=pk)
+            serializer = self.get_serializer(place)
+            serializer.update(place, request.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        except mongoengine.errors.NotUniqueError:
+            return Response({'message': 'This place already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
         try:
@@ -132,3 +171,9 @@ class FavoriteViewSet(MongoModelViewSet):
             favorite.place = place
             favorite.save()
             return Response(status=status.HTTP_201_CREATED)
+
+
+def get_photo(request, pk):
+    file_location = f'{settings.MEDIA_ROOT}/{settings.PHOTO_URL}/{pk}'
+    with open(file_location, "rb") as f:
+        return HttpResponse(f.read(), content_type="image/jpeg")

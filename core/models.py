@@ -1,6 +1,6 @@
 import mongoengine_goodjson as gj
 from datetime import datetime
-from mongoengine import Document, EmbeddedDocument, fields, PULL, CASCADE
+from mongoengine import Document, EmbeddedDocument, fields, PULL, CASCADE, DENY, errors
 
 
 class Category(gj.Document):
@@ -21,36 +21,36 @@ class Coordinates(gj.EmbeddedDocument):
 
 
 class Address(gj.EmbeddedDocument):
-    country = fields.StringField(required=True, max_length=50)
-    city = fields.StringField(required=True, max_length=50)
-    street = fields.StringField(required=True, max_length=50)
+    country = fields.StringField(max_length=50)
+    city = fields.StringField(max_length=50)
+    street = fields.StringField(max_length=50)
     coordinates = fields.EmbeddedDocumentField(Coordinates)
 
 
-class GeneralReview(gj.EmbeddedDocument):
-    rating = fields.DecimalField(min_value=0, max_value=5, precision=1)
-    food = fields.DecimalField(min_value=0, max_value=5, precision=1)
-    service = fields.DecimalField(min_value=0, max_value=5, precision=1)
-    ambience = fields.DecimalField(min_value=0, max_value=5, precision=1)
+class GeneralReview(gj.Document):
+    rating = fields.DecimalField(min_value=0, max_value=5, precision=1, default=None)
+    food = fields.DecimalField(min_value=0, max_value=5, precision=1, default=None)
+    service = fields.DecimalField(min_value=0, max_value=5, precision=1, default=None)
+    ambience = fields.DecimalField(min_value=0, max_value=5, precision=1, default=None)
     noise = fields.StringField(max_length=10)
-    amount = fields.IntField(default=0, min_value=0)
-    distribution = fields.ListField(field=fields.IntField(default=0, min_value=0), max_length=5, default=None)
+    amount = fields.IntField(min_value=0, default=0)
+    distribution = fields.ListField(field=fields.IntField(default=0, min_value=0), max_length=5, default=[])
 
 
 class Place(gj.Document):
-    title = fields.StringField(required=True, max_length=70, unique=True)
-    categories = fields.ListField(fields.ReferenceField(Category, reverse_delete_rule=PULL), default=None)
-    cuisines = fields.ListField(fields.ReferenceField(Cuisine, reverse_delete_rule=PULL), default=None)
-    additional = fields.ListField(fields.ReferenceField(AdditionalService, reverse_delete_rule=PULL), default=None)
-    description = fields.StringField(max_length=1000)
-    phone = fields.StringField(required=True, max_length=20, unique=True)
+    title = fields.StringField(required=True, max_length=70)
+    categories = fields.ListField(fields.ReferenceField(Category, reverse_delete_rule=PULL), default=[])
+    cuisines = fields.ListField(fields.ReferenceField(Cuisine, reverse_delete_rule=PULL), default=[])
+    additional_services = fields.ListField(fields.ReferenceField(AdditionalService, reverse_delete_rule=PULL), default=[])
+    description = fields.StringField(max_length=3000)
+    phone = fields.StringField(required=True, max_length=15, unique=True)
     instagram = fields.URLField()
     website = fields.URLField()
     rounded_rating = fields.IntField(min_value=0, max_value=5)
-    operation_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7, default=None)
-    general_review = fields.EmbeddedDocumentField(GeneralReview)
+    operation_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7)
+    general_review = fields.ReferenceField(GeneralReview, reverse_delete_rule=DENY, unique=True)
     address = fields.EmbeddedDocumentField(Address)
-    photos = fields.ListField(fields.ImageField(collection_name='photo'), default=None)
+    photos = fields.ListField(fields.StringField(), default=[])
 	# table2 = models.IntegerField()
 
 

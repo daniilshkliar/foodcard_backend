@@ -21,7 +21,7 @@ class UserViewSet(MongoModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated,]
-
+    # implement update list delete
     def check_login(self, request):
         return Response(status=status.HTTP_200_OK)
 
