@@ -3,6 +3,15 @@ from datetime import datetime
 from mongoengine import Document, EmbeddedDocument, fields, PULL, CASCADE, DENY, errors
 
 
+class City(gj.Document):
+    city = fields.StringField(required=True, max_length=70)
+
+
+class Country(gj.Document):
+    country = fields.StringField(required=True, max_length=70, unique=True)
+    cities = fields.ListField(field=fields.ReferenceField(City, reverse_delete_rule=PULL), default=[])
+
+
 class Category(gj.Document):
     title = fields.StringField(required=True, max_length=50, unique=True)
 
@@ -21,8 +30,8 @@ class Coordinates(gj.EmbeddedDocument):
 
 
 class Address(gj.EmbeddedDocument):
-    country = fields.StringField(max_length=50)
-    city = fields.StringField(max_length=50)
+    country = fields.ReferenceField(Country)
+    city = fields.ReferenceField(City)
     street = fields.StringField(max_length=50)
     coordinates = fields.EmbeddedDocumentField(Coordinates)
 
@@ -57,3 +66,4 @@ class Place(gj.Document):
 class Favorite(gj.Document):
     user_id = fields.IntField(min_value=0, required=True)
     place = fields.ReferenceField(Place, reverse_delete_rule=CASCADE, required=True)
+    # List field?

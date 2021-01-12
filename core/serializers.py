@@ -1,5 +1,5 @@
 from django.conf import settings
-from mongoengine import fields
+from mongoengine import fields, DoesNotExist
 from rest_framework import serializers
 from rest_framework_mongoengine import serializers as mongoserializers
 import base64
@@ -26,21 +26,69 @@ class AdditionalServiceSerializer(mongoserializers.DocumentSerializer):
         fields = '__all__'
 
 
-class CitySerializer(mongoserializers.EmbeddedDocumentSerializer):
+class CitySerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = City
+        fields = '__all__'
+
+
+class OnlyCountrySerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = Country
+        fields = ('id', 'country',)
+
+
+class CountrySerializer(mongoserializers.DocumentSerializer):
+    cities = CitySerializer(many=True)
+
+    def validate(self, data):
+        if 'country' in data:
+            data['country'] = data['country'].capitalize()
+        if 'cities' in data:
+            data['cities'] = list(dict.fromkeys(map(lambda ct: ct.capitalize(), data['cities'])))
+        return data
+
+    def update(self, instance, raw_data):
+        if not raw_data:
+            return instance
+        
+        validated_data = self.validate(raw_data)
+        if 'country' in validated_data:
+            instance.update(country=validated_data['country'])
+
+        if 'cities' in validated_data:
+            for ct in instance.cities:
+                ct.delete()
+            instance.update(**{'cities': list(map(lambda ct: City(city=ct).save(), validated_data['cities']))})
+
+        return instance.reload()
+
+    class Meta:
+        model = Country
+        fields = ('id', 'country', 'cities')
+
+
+class AmountFromGeneralReview(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = GeneralReview
+        fields = ('amount',)
+
+
+class AddressSerializer(mongoserializers.EmbeddedDocumentSerializer):
+    country = OnlyCountrySerializer(many=False)
+    city = CitySerializer(many=False)
+
     class Meta:
         model = Address
-        fields = ('city',)
+        fields = ('country', 'city', 'street', 'coordinates')
 
 
 class PlaceSerializer(mongoserializers.DocumentSerializer):
+    address = AddressSerializer(many=False)
+
     def validate(self, data):
         if 'title' in data:
             data['title'] = data['title'].capitalize()
-        if 'address' in data:
-            if 'country' in data['address']:
-                data['address']['country'] = data['address']['country'].capitalize()
-            if 'city' in data['address']:
-                data['address']['city'] = data['address']['city'].capitalize()
 
         if 'operation_hours' in data:
             if len(data['operation_hours']) != 7:
@@ -71,7 +119,43 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
             (Cuisine, 'cuisines'),
             (AdditionalService, 'additional_services')
         )
-        
+
+        if 'address' in raw_data:
+            country = None
+            city = None
+            street = None
+            coordinates = None
+
+            if 'country' in raw_data['address']:
+                try:
+                    country = Country.objects.get(id=raw_data['address'].pop('country'))
+                except DoesNotExist:
+                    raise serializers.ValidationError('This country is not supported')
+
+                if 'city' in raw_data['address']:
+                    try:
+                        city = City.objects.get(id=raw_data['address'].pop('city'))
+                        if city in country.cities:
+                            street = raw_data['address']['street'] if 'street' in raw_data['address'] else None
+                            coordinates = raw_data['address']['coordinates'] if 'coordinates' in raw_data['address'] else None
+                            instance.update(
+                                address__country=country,
+                                address__city=city,
+                                address__street=street,
+                                address__coordinates=coordinates
+                            )
+                            raw_data.pop('address')
+                        else:
+                            raise serializers.ValidationError('This city is not in ' + country.country)
+                    except DoesNotExist:
+                        raise serializers.ValidationError('This city is not supported')
+                else:
+                    raw_data.pop('address')
+                    raise serializers.ValidationError('You must enter the city')
+            else:
+                raw_data.pop('address')
+                raise serializers.ValidationError('You must enter the country')
+                
         validated_data = self.validate(raw_data)
         data = {
             key: value for key, value in validated_data.items()
@@ -89,20 +173,29 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
     class Meta:
         model = Place
         fields = '__all__'
-        depth = 2
+        depth = 3
 
 
-class FavoritePlaceSerializer(mongoserializers.DocumentSerializer):
-    address = CitySerializer(many=False)
-
-    class Meta:
-        model = Place
-        fields = ('title', 'address',)
-
-
-class FavoriteSerializer(mongoserializers.DocumentSerializer):
-    place = FavoritePlaceSerializer(many=False)
+class CardSerializer(mongoserializers.DocumentSerializer):
+    general_review = AmountFromGeneralReview(many=False)
 
     class Meta:
-        model = Favorite
-        fields = ('place',)
+            model = Place
+            fields = ('title', 'cuisines', 'categories', 'operation_hours', 'general_review', 'address', 'rounded_rating')
+            depth = 2
+
+
+# class FavoritePlaceSerializer(mongoserializers.DocumentSerializer):
+#     address = CitySerializer(many=False)
+
+#     class Meta:
+#         model = Place
+#         fields = ('title', 'address',)
+
+
+# class FavoriteSerializer(mongoserializers.DocumentSerializer):
+#     place = FavoritePlaceSerializer(many=False)
+
+#     class Meta:
+#         model = Favorite
+#         fields = ('place',)
