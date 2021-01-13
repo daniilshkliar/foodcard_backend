@@ -15,7 +15,7 @@ from .models import *
 from .serializers import *
 
 
-class LocationViewSet(MongoModelViewSet):
+class CountryViewSet(MongoModelViewSet):
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
     permission_classes = [IsAdminUserOrReadOnly,]
@@ -24,51 +24,29 @@ class LocationViewSet(MongoModelViewSet):
         serializer = self.get_serializer(self.queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    def retrieve(self, request, pk=None):
+        try:
+            country = self.queryset.get(id=pk)
+            serializer = self.get_serializer(country)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This country is not supported'}, status=status.HTTP_404_NOT_FOUND)
+
     def create(self, request):
-        if isinstance(request.data, list):
-            messages = []
-            for data in request.data:
-                try:
-                    country = Country(country=request.data['country'].capitalize())
-                    if 'cities' in request.data:
-                        for ct in request.data['cities']:
-                            city = City(city=ct)
-                            city.save()
-                            country.cities.append(city)
-                    country.save()
-                    serializer = self.get_serializer(country)
-                    messages.append({
-                        'status': status.HTTP_201_CREATED,
-                        'country': serializer.data
-                    })
-                except mongoengine.errors.NotUniqueError:
-                    messages.append({
-                        'status': status.HTTP_400_BAD_REQUEST,
-                        'country': data['country'],
-                        'message': 'This country already exists'
-                    })
-                except mongoengine.errors.ValidationError:
-                    messages.append({
-                        'status': status.HTTP_400_BAD_REQUEST,
-                        'country': data['country'],
-                        'message': 'Validation error'
-                    })
-            return Response(messages, status=status.HTTP_200_OK)
-        else:
-            try:
-                country = Country(country=request.data['country'].capitalize())
-                if 'cities' in request.data:
-                    for ct in request.data['cities']:
-                        city = City(city=ct)
-                        city.save()
-                        country.cities.append(city)
-                country.save()
-                serializer = self.get_serializer(country)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            except mongoengine.errors.NotUniqueError:
-                return Response({'message': 'This country already exists'}, status=status.HTTP_400_BAD_REQUEST)
-            except mongoengine.errors.ValidationError:
-                return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            country = Country(country=request.data['country'].capitalize())
+            if 'cities' in request.data:
+                for ct in request.data['cities']:
+                    city = City(city=ct)
+                    city.save()
+                    country.cities.append(city)
+            country.save()
+            serializer = self.get_serializer(country)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except mongoengine.errors.NotUniqueError:
+            return Response({'message': 'This country already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError as e:
+            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         try:
@@ -77,11 +55,11 @@ class LocationViewSet(MongoModelViewSet):
             serializer.update(country, request.data)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'This country is not supported'}, status=status.HTTP_404_NOT_FOUND)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This country already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError:
-            return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError as e:
+            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
         try:
@@ -90,6 +68,60 @@ class LocationViewSet(MongoModelViewSet):
                 ct.delete()
             country.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This country is not supported'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CityViewSet(MongoModelViewSet):
+    queryset = City.objects.all()
+    serializer_class = CitySerializer
+    permission_classes = [IsAdminUserOrReadOnly,]
+
+    def list(self, request):
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def create(self, request):
+        try:
+            country = request.data['country'] if 'country' in request.data else None
+            city = request.data['city'] if 'city' in request.data else None
+
+            if country:
+                try:
+                    country = Country.objects.get(id=country)
+                except DoesNotExist:
+                    return Response({'message': 'This country is not supported'}, status=status.HTTP_404_NOT_FOUND)
+                    
+                if city:
+                    cities = City.objects(city=city)
+                    for cty in cities:
+                        if cty in country.cities:
+                            return Response({'message': cty.city + ' already exists in ' + country.country}, status=status.HTTP_400_BAD_REQUEST)
+                    city = City(city=city)
+                    city.save()
+                    country.cities.append(city)
+                    country.save()
+                    serializer = self.get_serializer(city)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({'message': 'You must enter the city'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'message': 'You must enter the country'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError as e:
+            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        pass
+
+    def destroy(self, request):
+        try:
+            country = Country.objects.get(id=request.data['country'])
+            city = City.objects.get(id=request.data['city'])
+            if city in country.cities:
+                city.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                return Response({'message': 'This city is not in ' + country.country}, status=status.HTTP_400_BAD_REQUEST)
         except mongoengine.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -102,40 +134,15 @@ class DocumentListViewSet(MongoModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     def create(self, request):
-        if isinstance(request.data, list):
-            messages = []
-            for data in request.data:
-                try:
-                    obj = self.model(title=data['title'].capitalize())
-                    obj.save()
-                    serializer = self.get_serializer(obj)
-                    messages.append({
-                        'status': status.HTTP_201_CREATED,
-                        self.desrciption: serializer.data
-                    })
-                except mongoengine.errors.NotUniqueError:
-                    messages.append({
-                        'status': status.HTTP_400_BAD_REQUEST,
-                        'title': data['title'],
-                        'message': 'This ' + self.desrciption + ' already exists'
-                    })
-                except mongoengine.errors.ValidationError:
-                    messages.append({
-                        'status': status.HTTP_400_BAD_REQUEST,
-                        'title': data['title'],
-                        'message': 'Validation error'
-                    })
-            return Response(messages, status=status.HTTP_200_OK)
-        else:
-            try:
-                obj = self.model(title=request.data['title'].capitalize())
-                obj.save()
-                serializer = self.get_serializer(obj)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            except mongoengine.errors.NotUniqueError:
-                return Response({'message': 'This ' + self.desrciption + ' already exists'}, status=status.HTTP_400_BAD_REQUEST)
-            except mongoengine.errors.ValidationError:
-                return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            obj = self.model(title=request.data['title'].capitalize())
+            obj.save()
+            serializer = self.get_serializer(obj)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except mongoengine.errors.NotUniqueError:
+            return Response({'message': 'This ' + self.desrciption + ' already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError as e:
+            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         pass
@@ -146,7 +153,7 @@ class DocumentListViewSet(MongoModelViewSet):
             obj.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except mongoengine.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'This ' + self.desrciption + ' does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class CategoryViewSet(DocumentListViewSet):
@@ -181,11 +188,12 @@ class PlaceViewSet(MongoModelViewSet):
 
     def retrieve(self, request, city=None, title=None):
         try:
-            place = self.queryset.get(title=title.capitalize(), address__city=city.capitalize())
+            cities = City.objects(city=city.capitalize())
+            place = self.queryset.get(title=title.capitalize(), address__city__in=cities)
             serializer = self.get_serializer(place)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request):
         try:
@@ -200,8 +208,8 @@ class PlaceViewSet(MongoModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This place already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError:
-            return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError as e:
+            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         try:
@@ -210,11 +218,11 @@ class PlaceViewSet(MongoModelViewSet):
             serializer.update(place, request.data)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This place already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError:
-            return Response({'message': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError as e:
+            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
         try:
@@ -223,7 +231,7 @@ class PlaceViewSet(MongoModelViewSet):
             place.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except mongoengine.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 
 # class FavoriteViewSet(MongoModelViewSet):

@@ -102,6 +102,12 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
         if not raw_data:
             return instance
 
+        composite_fields = (
+            (Category, 'categories'),
+            (Cuisine, 'cuisines'),
+            (AdditionalService, 'additional_services')
+        )
+
         if 'photos' in raw_data:
             photo_urls = []
             photos = raw_data.pop('photos')
@@ -114,48 +120,46 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
                     photo_urls.append(uri)
             instance.update(photos=photo_urls)
 
-        composite_fields = (
-            (Category, 'categories'),
-            (Cuisine, 'cuisines'),
-            (AdditionalService, 'additional_services')
-        )
-
         if 'address' in raw_data:
-            country = None
-            city = None
-            street = None
-            coordinates = None
+            country = raw_data['address']['country'] if 'country' in raw_data['address'] else None
+            city = raw_data['address']['city'] if 'city' in raw_data['address'] else None
+            street = raw_data['address']['street'] if 'street' in raw_data['address'] else None
+            coordinates = raw_data['address']['coordinates'] if 'coordinates' in raw_data['address'] else None
 
-            if 'country' in raw_data['address']:
+            if country:
                 try:
-                    country = Country.objects.get(id=raw_data['address'].pop('country'))
+                    country = Country.objects.get(id=country)
                 except DoesNotExist:
                     raise serializers.ValidationError('This country is not supported')
 
-                if 'city' in raw_data['address']:
+                if city:
                     try:
-                        city = City.objects.get(id=raw_data['address'].pop('city'))
+                        city = City.objects.get(id=city)
                         if city in country.cities:
-                            street = raw_data['address']['street'] if 'street' in raw_data['address'] else None
-                            coordinates = raw_data['address']['coordinates'] if 'coordinates' in raw_data['address'] else None
-                            instance.update(
-                                address__country=country,
-                                address__city=city,
-                                address__street=street,
-                                address__coordinates=coordinates
-                            )
-                            raw_data.pop('address')
+                            if street:
+                                if coordinates:
+                                    instance.update(
+                                        address__country=country,
+                                        address__city=city,
+                                        address__street=street,
+                                        address__coordinates=coordinates
+                                    )
+                                else:
+                                    raise serializers.ValidationError('Coordinates not provided')
+                            else:
+                                raise serializers.ValidationError('You must enter the street')
                         else:
                             raise serializers.ValidationError('This city is not in ' + country.country)
                     except DoesNotExist:
                         raise serializers.ValidationError('This city is not supported')
                 else:
-                    raw_data.pop('address')
                     raise serializers.ValidationError('You must enter the city')
             else:
-                raw_data.pop('address')
                 raise serializers.ValidationError('You must enter the country')
                 
+        if 'address' in raw_data:
+            raw_data.pop('address')
+            
         validated_data = self.validate(raw_data)
         data = {
             key: value for key, value in validated_data.items()
@@ -178,6 +182,7 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
 
 class CardSerializer(mongoserializers.DocumentSerializer):
     general_review = AmountFromGeneralReview(many=False)
+    address = AddressSerializer(many=False)
 
     class Meta:
             model = Place
