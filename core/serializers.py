@@ -156,10 +156,8 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
                     raise serializers.ValidationError('You must enter the city')
             else:
                 raise serializers.ValidationError('You must enter the country')
-                
-        if 'address' in raw_data:
             raw_data.pop('address')
-            
+
         validated_data = self.validate(raw_data)
         data = {
             key: value for key, value in validated_data.items()
@@ -186,21 +184,21 @@ class CardSerializer(mongoserializers.DocumentSerializer):
 
     class Meta:
             model = Place
-            fields = ('title', 'cuisines', 'categories', 'operation_hours', 'general_review', 'address', 'rounded_rating')
+            fields = ('id', 'title', 'cuisines', 'categories', 'operation_hours', 'general_review', 'address', 'rounded_rating', 'photos')
             depth = 2
 
 
-# class FavoritePlaceSerializer(mongoserializers.DocumentSerializer):
-#     address = CitySerializer(many=False)
+class FavoritePlaceSerializer(mongoserializers.DocumentSerializer):
+    address = CitySerializer(many=False)
 
-#     class Meta:
-#         model = Place
-#         fields = ('title', 'address',)
+    class Meta:
+        model = Place
+        fields = ('title', 'address')
 
 
-# class FavoriteSerializer(mongoserializers.DocumentSerializer):
-#     place = FavoritePlaceSerializer(many=False)
+class FavoriteSerializer(mongoserializers.DocumentSerializer):
+    places = FavoritePlaceSerializer(many=True)
 
-#     class Meta:
-#         model = Favorite
-#         fields = ('place',)
+    class Meta:
+        model = Favorite
+        fields = '__all__'

@@ -45,8 +45,8 @@ class CountryViewSet(MongoModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This country already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError as e:
-            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'error': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         try:
@@ -58,8 +58,8 @@ class CountryViewSet(MongoModelViewSet):
             return Response({'message': 'This country is not supported'}, status=status.HTTP_404_NOT_FOUND)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This country already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError as e:
-            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'error': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
         try:
@@ -107,11 +107,11 @@ class CityViewSet(MongoModelViewSet):
                     return Response({'message': 'You must enter the city'}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response({'message': 'You must enter the country'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError as e:
-            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'error': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
-        pass
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
     def destroy(self, request):
         try:
@@ -141,11 +141,11 @@ class DocumentListViewSet(MongoModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This ' + self.desrciption + ' already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError as e:
-            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'error': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
-        pass
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
     def destroy(self, request, pk=None):
         try:
@@ -208,8 +208,8 @@ class PlaceViewSet(MongoModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This place already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError as e:
-            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'error': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, pk=None):
         try:
@@ -221,8 +221,8 @@ class PlaceViewSet(MongoModelViewSet):
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
         except mongoengine.errors.NotUniqueError:
             return Response({'message': 'This place already exists'}, status=status.HTTP_400_BAD_REQUEST)
-        except mongoengine.errors.ValidationError as e:
-            return Response({'error': 'Validation error', 'message': e.errors}, status=status.HTTP_400_BAD_REQUEST)
+        except mongoengine.errors.ValidationError:
+            return Response({'error': 'Validation error'}, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
         try:
@@ -234,31 +234,42 @@ class PlaceViewSet(MongoModelViewSet):
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 
-# class FavoriteViewSet(MongoModelViewSet):
-#     queryset = Favorite.objects.all()
-#     serializer_class = FavoriteSerializer
-#     permission_classes = [IsAuthenticated,]
+class FavoriteViewSet(MongoModelViewSet):
+    queryset = Favorite.objects.all()
+    serializer_class = FavoriteSerializer
+    permission_classes = [IsAuthenticated,]
 
-#     def list(self, request):
-#         favorites = self.queryset(user_id=request.user.id)
-#         serializer = self.get_serializer(favorites, many=True)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
+    def list(self, request):
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-#     def handle(self, request, pk=None):
-#         try:
-#             place = Place.objects.get(id=pk)
-#         except mongoengine.DoesNotExist:
-#             return Response(status=status.HTTP_404_NOT_FOUND)
+    def retrieve(self, request):
+        try:
+            favorite = self.queryset.get(user=request.user.id)
+            serializer = self.get_serializer(favorite)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'User has no favorite places'}, status=status.HTTP_404_NOT_FOUND)
+
+    def handle(self, request, pk=None):
+        try:
+            place = Place.objects.get(id=pk)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
         
-#         if favorite := self.queryset(user_id=request.user.id, place=place):
-#             favorite.delete()
-#             return Response(status=status.HTTP_204_NO_CONTENT)
-#         else:
-#             favorite = Favorite()
-#             favorite.user_id = request.user.id
-#             favorite.place = place
-#             favorite.save()
-#             return Response(status=status.HTTP_201_CREATED)
+        try:
+            favorite = Favorite.objects.get(user=request.user.id)
+        except mongoengine.DoesNotExist:
+            favorite = Favorite(user=request.user.id).save()
+        
+        if place in favorite.places:
+            favorite.places.remove(place)
+            favorite.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            favorite.places.append(place)
+            favorite.save()
+            return Response(status=status.HTTP_201_CREATED)
 
 
 def get_photo(request, pk):

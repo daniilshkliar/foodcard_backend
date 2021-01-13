@@ -64,6 +64,5 @@ class Place(gj.Document):
 
 
 class Favorite(gj.Document):
-    user_id = fields.IntField(min_value=0, required=True)
-    place = fields.ReferenceField(Place, reverse_delete_rule=CASCADE, required=True)
-    # List field?
+    user = fields.IntField(min_value=0, required=True, unique=True)
+    places = fields.ListField(field=fields.ReferenceField(Place, reverse_delete_rule=PULL), default=[])
