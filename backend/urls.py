@@ -24,6 +24,7 @@ urlpatterns = [
     path('authentication/', include('authentication.urls')),
     path('core/', include('core.urls')),
     path('reviews/', include('reviews.urls')),
+    # path('control/', include('control.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

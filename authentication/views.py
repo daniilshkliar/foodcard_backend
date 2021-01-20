@@ -20,8 +20,8 @@ from .serializers import *
 class UserViewSet(MongoModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated,]
-    # implement update list delete
+    permission_classes = (IsAuthenticated,)
+    
     def check_login(self, request):
         return Response(status=status.HTTP_200_OK)
 

@@ -1,12 +1,28 @@
+import json
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_mongoengine import serializers as mongoserializers
+from mongoengine import fields, DoesNotExist, errors
+
+from .models import *
+from core.models import *
 
 
 class UserSerializer(serializers.ModelSerializer):
+    manager_of = serializers.SerializerMethodField()
+
+    def get_manager_of(self, obj):
+        manager_of = Manager.objects(user=obj.id).only('places').first()
+        if manager_of:
+            data = json.loads(manager_of.to_json())
+            return data.get('places', [])
+        else:
+            return []
+
     class Meta:
         model = User
-        fields = ('id', 'email', 'first_name', 'last_name', 'is_superuser',)
+        fields = ('id', 'email', 'first_name', 'last_name', 'is_superuser', 'manager_of')
 
 
 class LoginSerializer(serializers.Serializer):
