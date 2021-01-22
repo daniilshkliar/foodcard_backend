@@ -86,12 +86,18 @@ class CitySerializer(mongoserializers.DocumentSerializer):
         fields = ('city',)
 
 
+class CountryCityStreetSerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = Address
+        fields = ('country', 'city', 'street')
+
+
 class FavoritePlaceSerializer(mongoserializers.DocumentSerializer):
     address = CitySerializer(many=False)
 
     class Meta:
         model = Place
-        fields = ('title', 'address')
+        fields = ('id', 'title', 'address')
 
 
 class FavoriteSerializer(mongoserializers.DocumentSerializer):
@@ -100,3 +106,20 @@ class FavoriteSerializer(mongoserializers.DocumentSerializer):
     class Meta:
         model = Favorite
         fields = ('places',)
+
+
+class PlacesForControlPanelSerializer(mongoserializers.DocumentSerializer):
+    address = CountryCityStreetSerializer(many=False)
+
+    def validate(self, data):
+        pass
+
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
+
+    class Meta:
+        model = Place
+        fields = ('id', 'title', 'address', 'phone')

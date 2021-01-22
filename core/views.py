@@ -9,17 +9,17 @@ from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from backend.permissions import IsAdminUserOrReadOnly
 from rest_framework_mongoengine.viewsets import ModelViewSet as MongoModelViewSet
 
+from backend.permissions import *
 from .models import *   
+from authentication.models import *
 from .serializers import *
-
 
 class PlaceViewSet(MongoModelViewSet):
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
-    permission_classes = (IsAdminUserOrReadOnly,) # allow to managers, not only admins
+    permission_classes = (IsAdminUserOrReadOnly|ManagerUpdateOnly,)
 
     def list(self, request):
         serializer = CardSerializer(self.queryset(is_active=True), many=True)
@@ -95,6 +95,28 @@ class FavoriteViewSet(MongoModelViewSet):
             favorite.places.append(place)
             favorite.save()
             return Response(status=status.HTTP_201_CREATED)
+
+
+class ControlPanelViewSet(MongoModelViewSet):
+    queryset = Place.objects.all()
+    serializer_class = PlacesForControlPanelSerializer
+    permission_classes = (IsAdminUserOrManager,)
+
+    def list(self, request):
+        if request.user.is_staff:
+            serializer = self.get_serializer(self.queryset, many=True)
+        else:
+            manager = Manager.objects.get(user=request.user.id)
+            serializer = self.get_serializer(manager.places, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, pk=None):
+        try:
+            place = self.queryset.get(id=pk)
+            serializer = PlaceSerializer(place)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 
 def get_photo(request, pk):
