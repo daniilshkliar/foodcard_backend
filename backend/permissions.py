@@ -42,8 +42,9 @@ class ManagerUpdateOnly(BasePermission):
     """
 
     def has_permission(self, request, view):
+        PATH = request.META.get('PATH_INFO').split('/')
         try:
-            pk = request.META.get('PATH_INFO').split('/')[-2]
+            pk = PATH[-2]
             manager = Manager.objects.get(user=request.user.id)
             is_manager = pk in [str(place.id) for place in manager.places]
         except:
@@ -51,5 +52,8 @@ class ManagerUpdateOnly(BasePermission):
         
         return bool(
             request.user and
-            is_manager
+            is_manager and
+            PATH[-3]=='update' or 
+            PATH[-3]=='upload_image' or
+            PATH[-3]=='delete_image'
         )

@@ -9,11 +9,23 @@ from .models import *
 
 
 class PlaceSerializer(mongoserializers.DocumentSerializer):
-    main_photo = serializers.SerializerMethodField()
-
     def validate(self, data):
         if 'title' in data:
             data['title'] = data['title'].capitalize()
+
+        main_category = data.get('main_category')
+        categories = data.get('categories')
+        if bool(main_category) != bool(categories):
+            raise serializers.ValidationError('You must specify fields for both the main category and categories fields')
+        if main_category and categories and not main_category in categories:
+            raise serializers.ValidationError('The main category must be in the list of selected categories')
+
+        main_cuisine = data.get('main_cuisine')
+        cuisines = data.get('cuisines')
+        if bool(main_cuisine) != bool(cuisines):
+            raise serializers.ValidationError('You must specify fields for both the main cuisine and cuisines fields')
+        if main_cuisine and cuisines and not main_cuisine in cuisines:
+            raise serializers.ValidationError('The main cuisine must be in the list of selected cuisines')
 
         if 'operation_hours' in data:
             if len(data['operation_hours']) != 7:
@@ -32,33 +44,23 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
         return place
 
     def update(self, instance, validated_data):
-        print(validated_data)
-        if 'main_photo' in validated_data:
-            instance.main_photo.replace(validated_data.pop('main_photo'), content_type = 'image/jpeg')
-            instance.save()
+        instagram = validated_data.get('instagram')
+        if instagram and instagram == "https://www.instagram.com/":
+            validated_data['instagram'] = None
 
-        #     photo_urls = []
-        #     photos = validated_data.pop('photos')
-        #     for photo in photos:
-        #         file_name = f'{str(uuid.uuid4())}.jpg'
-        #         file_location = f'{settings.MEDIA_ROOT}/{settings.PHOTO_URL}/{file_name}'
-        #         uri = f'{settings.URI_ROOT}core/photo/get/{file_name}'
-        #         with open(file_location, 'wb') as f:
-        #             f.write(base64.b64decode(photo))
-        #             photo_urls.append(uri)
-        #     instance.update(photos=photo_urls)
-        # delete all previous pictures
+        website = validated_data.get('website')
+        if website and website == "http://www.none.com":
+            validated_data['website'] = None            
+
+        if main_photo := validated_data.get('main_photo'):
+            if not main_photo in instance.photos:
+                raise serializers.ValidationError('This main photo is not found in all photos')
 
         if not validated_data:
             return instance
 
         instance.update(**validated_data)
         return instance.reload()
-    
-    def get_main_photo(self, obj):
-        # handle array of images
-        # return base64.b64encode(obj.main_photo.read())
-        return f'{settings.URI_ROOT}core/main_photo/get/{obj.main_photo._id}/'
 
     class Meta:
         model = Place
@@ -122,4 +124,4 @@ class PlacesForControlPanelSerializer(mongoserializers.DocumentSerializer):
 
     class Meta:
         model = Place
-        fields = ('id', 'title', 'address', 'phone')
+        fields = ('id', 'title', 'address', 'is_active')
