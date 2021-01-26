@@ -53,7 +53,25 @@ class ManagerUpdateOnly(BasePermission):
         return bool(
             request.user and
             is_manager and
-            PATH[-3]=='update' or 
-            PATH[-3]=='upload_image' or
-            PATH[-3]=='delete_image'
+            PATH[-3]=='update'
+        )
+
+
+class IsManagerOrReadOnly(BasePermission):
+    """
+    The request is authenticated as a manager, or is a read-only request.
+    """
+
+    def has_permission(self, request, view):
+        try:
+            pk = request.META.get('PATH_INFO').split('/')[-2]
+            manager = Manager.objects.get(user=request.user.id)
+            is_manager = pk in [str(place.id) for place in manager.places]
+        except:
+            is_manager = False
+
+        return bool(
+            request.method in SAFE_METHODS or
+            request.user and
+            is_manager
         )

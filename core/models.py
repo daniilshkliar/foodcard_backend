@@ -22,6 +22,13 @@ class GeneralReview(gj.Document):
     distribution = fields.ListField(field=fields.IntField(min_value=0, default=0), max_length=5, default=[])
 
 
+class Image(gj.Document):
+    image_name = fields.StringField()
+    image_uri = fields.URLField()
+    thumbnail_name = fields.StringField()
+    thumbnail_uri = fields.URLField()
+
+
 class Place(gj.Document):
     title = fields.StringField(required=True, max_length=70, unique_with='address')
     main_category = fields.StringField(max_length=30, choices=src.categories)
@@ -36,8 +43,8 @@ class Place(gj.Document):
     operation_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7)
     general_review = fields.ReferenceField(GeneralReview, reverse_delete_rule=NULLIFY, unique=True)
     address = fields.EmbeddedDocumentField(Address, required=True)
-    main_photo = fields.StringField()
-    photos = fields.ListField(fields.StringField(), default=[])
+    main_photo = fields.ReferenceField(Image, reverse_delete_rule=NULLIFY)
+    photos = fields.ListField(fields.ReferenceField(Image, reverse_delete_rule=PULL), default=[])
     is_active = fields.BooleanField(default=False)
 	# table2 = models.IntegerField()
 

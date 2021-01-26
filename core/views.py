@@ -2,6 +2,8 @@ import json
 import mongoengine
 import base64
 import os
+from PIL import Image as PILImage
+from io import BytesIO
 from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -44,53 +46,19 @@ class PlaceViewSet(MongoModelViewSet):
     def update(self, request, pk=None):
         try:
             place = self.queryset.get(id=pk)
+
+            if main_photo := request.data.pop('main_photo'):
+                try:
+                    photo = Image.objects.get(id=main_photo)
+                    if photo in place.photos:
+                        place.main_photo = photo
+                        place.save()
+                except mongoengine.DoesNotExist:
+                    return Response({'message': 'This main photo does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
             serializer = self.get_serializer(place, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except mongoengine.DoesNotExist:
-            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
-    def upload_image(self, request, pk=None):
-        try:
-            place = self.queryset.get(id=pk)
-
-            if photos := request.data.get('photos'):
-                photo_urls = []
-                for photo in photos:
-                    file_name = f'{str(uuid.uuid4())}.jpg'
-                    file_location = f'{settings.MEDIA_ROOT}/{settings.PHOTO_URL}/{file_name}'
-                    uri = f'{settings.URI_ROOT}core/photo/get/{file_name}'
-                    with open(file_location, 'wb') as f:
-                        f.write(base64.b64decode(photo))
-                        photo_urls.append(uri)
-                place.photos.extend(photo_urls)
-                place.save()
-            else:
-                return Response({'message': 'You must provide any photos'}, status=status.HTTP_400_BAD_REQUEST)
-
-            serializer = self.get_serializer(place)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except mongoengine.DoesNotExist:
-            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
-    def delete_image(self, request, pk=None):
-        try:
-            place = self.queryset.get(id=pk)
-
-            if photos := request.data.get('photos'):
-                for photo in photos:
-                    if photo in place.photos:
-                        try:
-                            os.remove(f'{settings.MEDIA_ROOT}/{settings.PHOTO_URL}/{photo.split("/")[-1]}')
-                            place.photos.remove(photo)
-                        except:
-                            print("File does not exist")
-            else:
-                return Response({'message': 'You must provide any photos'}, status=status.HTTP_400_BAD_REQUEST)
-
-            place.save()
-            serializer = self.get_serializer(place)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -101,6 +69,82 @@ class PlaceViewSet(MongoModelViewSet):
             place.general_review.delete()
             place.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ImageViewSet(MongoModelViewSet):
+    queryset = Image.objects.all()
+    serializer_class = ImageSerializer
+    permission_classes = (IsAdminUserOrReadOnly|IsManagerOrReadOnly,)
+    
+    def retrieve(self, request, file_name=None):
+        file_location = os.path.join(settings.MEDIA_ROOT, 'images', file_name)
+        with open(file_location, "rb") as f:
+            return HttpResponse(f.read(), content_type="image/jpeg")
+
+    def create(self, request, pk=None):
+        try:
+            place = Place.objects.get(id=pk)
+
+            if photos := request.data.get('photos'):
+                size = (300, 200)
+                new_images = []
+                for photo in photos:
+                    name = str(uuid.uuid4())
+                    image_name = f'{name}.jpg'
+                    thumbnail_name = f'{name}.thumbnail'
+                    image_uri = os.path.join(settings.URI_ROOT, 'core/image/get/', image_name)
+                    thumbnail_uri = os.path.join(settings.URI_ROOT, 'core/image/get/', thumbnail_name)
+                    image_location = os.path.join(settings.MEDIA_ROOT, 'images', image_name)
+                    thumbnail_location = os.path.join(settings.MEDIA_ROOT, 'images', thumbnail_name)
+
+                    try:
+                        with PILImage.open(BytesIO(base64.b64decode(photo))) as img:
+                            img.save(image_location, 'JPEG')
+                            img.thumbnail(size)
+                            img.save(thumbnail_location, 'JPEG')
+                    except:
+                        Response({'message': 'OSError'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
+                    new_image = Image(
+                        image_name=image_name,
+                        thumbnail_name=thumbnail_name,
+                        image_uri=image_uri,
+                        thumbnail_uri=thumbnail_uri
+                    ).save()
+
+                    new_images.append(new_image)
+
+                place.photos.extend(new_images)
+                place.save()
+            else:
+                return Response({'message': 'You must provide any photos'}, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = PlaceSerializer(place)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+    def destroy(self, request, pk=None):
+        try:
+            place = Place.objects.get(id=pk)
+            if photos := request.data.get('photos'):
+                for photo_id in photos:
+                    photo = self.queryset.get(id=photo_id)
+                    if photo in place.photos:
+                        try:
+                            os.remove(os.path.join(settings.MEDIA_ROOT, 'images', photo.image_name))
+                            os.remove(os.path.join(settings.MEDIA_ROOT, 'images', photo.thumbnail_name))
+                            place.photos.remove(photo)
+                        except:
+                            print("File does not exist")
+            else:
+                return Response({'message': 'You must provide any photos'}, status=status.HTTP_400_BAD_REQUEST)
+
+            place.save()
+            serializer = PlaceSerializer(place)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -163,9 +207,3 @@ class ControlPanelViewSet(MongoModelViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
-
-def get_photo(request, pk):
-    file_location = f'{settings.MEDIA_ROOT}/{settings.PHOTO_URL}/{pk}'
-    with open(file_location, "rb") as f:
-        return HttpResponse(f.read(), content_type="image/jpeg")

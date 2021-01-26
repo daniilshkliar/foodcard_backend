@@ -8,7 +8,22 @@ from rest_framework_mongoengine import serializers as mongoserializers
 from .models import *
 
 
+class ImageSerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = Image
+        fields = '__all__'
+
+
+class ImageThumbnailSerializer(mongoserializers.DocumentSerializer):
+    class Meta:
+        model = Image
+        fields = ('id', 'thumbnail_uri',)
+
+
 class PlaceSerializer(mongoserializers.DocumentSerializer):
+    main_photo = ImageThumbnailSerializer(many=False)
+    photos = ImageSerializer(many=True)
+
     def validate(self, data):
         if 'title' in data:
             data['title'] = data['title'].capitalize()
@@ -50,11 +65,7 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
 
         website = validated_data.get('website')
         if website and website == "http://www.none.com":
-            validated_data['website'] = None            
-
-        if main_photo := validated_data.get('main_photo'):
-            if not main_photo in instance.photos:
-                raise serializers.ValidationError('This main photo is not found in all photos')
+            validated_data['website'] = None
 
         if not validated_data:
             return instance
@@ -76,6 +87,7 @@ class AmountAndRoundedRatingFromGeneralReview(mongoserializers.DocumentSerialize
 
 class CardSerializer(mongoserializers.DocumentSerializer):
     general_review = AmountAndRoundedRatingFromGeneralReview(many=False)
+    main_photo = ImageThumbnailSerializer(many=False)
 
     class Meta:
         model = Place
