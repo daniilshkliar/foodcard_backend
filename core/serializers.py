@@ -28,19 +28,13 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
         if 'title' in data:
             data['title'] = data['title'].capitalize()
 
-        main_category = data.get('main_category')
-        categories = data.get('categories')
-        if bool(main_category) != bool(categories):
-            raise serializers.ValidationError('You must specify fields for both the main category and categories fields')
-        if main_category and categories and not main_category in categories:
-            raise serializers.ValidationError('The main category must be in the list of selected categories')
-
-        main_cuisine = data.get('main_cuisine')
-        cuisines = data.get('cuisines')
-        if bool(main_cuisine) != bool(cuisines):
-            raise serializers.ValidationError('You must specify fields for both the main cuisine and cuisines fields')
-        if main_cuisine and cuisines and not main_cuisine in cuisines:
-            raise serializers.ValidationError('The main cuisine must be in the list of selected cuisines')
+        for main_field_title, field_title in (('main_category', 'categories'), ('main_cuisine', 'cuisines')):
+            main_field = data.get(main_field_title)
+            field = data.get(field_title)
+            if bool(main_field) != bool(field):
+                raise serializers.ValidationError(f'You must specify fields for both the {main_field_title} and {field_title} fields')
+            if main_field and field and not main_field in field:
+                raise serializers.ValidationError(f'The {main_field_title} must be in the list of selected {field_title}')
 
         if 'operation_hours' in data:
             if len(data['operation_hours']) != 7:

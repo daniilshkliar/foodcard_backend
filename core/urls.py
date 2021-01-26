@@ -13,7 +13,7 @@ urlpatterns = [
     path('favorite/handle/<slug:pk>/', views.FavoriteViewSet.as_view({'post': 'handle'})),
     path('panel/get/all/', views.ControlPanelViewSet.as_view({'get': 'list'})),
     path('panel/get/<slug:pk>/', views.ControlPanelViewSet.as_view({'get': 'retrieve'})),
-    path('image/get/<str:file_name>/', views.ImageViewSet.as_view({'get': 'retrieve'})),
-    path('image/upload/<slug:pk>/', views.ImageViewSet.as_view({'post': 'create'})),
-    path('image/delete/<slug:pk>/', views.ImageViewSet.as_view({'post': 'destroy'})),
+    path('image/get/<str:file_name>/', views.PlaceImageViewSet.as_view({'get': 'retrieve'})),
+    path('image/upload/<slug:pk>/', views.PlaceImageViewSet.as_view({'post': 'create'})),
+    path('image/delete/<slug:pk>/', views.PlaceImageViewSet.as_view({'post': 'destroy'})),
 ]

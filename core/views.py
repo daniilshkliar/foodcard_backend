@@ -47,7 +47,7 @@ class PlaceViewSet(MongoModelViewSet):
         try:
             place = self.queryset.get(id=pk)
 
-            if main_photo := request.data.pop('main_photo'):
+            if main_photo := request.data.pop('main_photo', None):
                 try:
                     photo = Image.objects.get(id=main_photo)
                     if photo in place.photos:
@@ -67,56 +67,88 @@ class PlaceViewSet(MongoModelViewSet):
         try:
             place = self.queryset.get(id=pk)
             place.general_review.delete()
+            # delete all photos
             place.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except mongoengine.DoesNotExist:
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
 
-class ImageViewSet(MongoModelViewSet):
+class BaseImageViewSet():    
+    def get_image(self, file_name):
+        try:
+            file_path = os.path.join(settings.MEDIA_ROOT, 'images', file_name)
+            with open(file_path, 'rb') as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f'File {file_name} not found')
+            return None
+
+    def save_images(self, images, thumbnail=True):
+        thumbnail_size = (300, 200)
+        saved_images = []
+
+        for image in images:
+            image_id = str(uuid.uuid4())
+            image_name = f'{image_id}.jpeg'
+            image_uri = os.path.join(settings.URI_ROOT, 'core/image/get/', image_name)
+            image_path = os.path.join(settings.MEDIA_ROOT, 'images', image_name)
+
+            if thumbnail:
+                thumbnail_name = f'{image_id}.thumbnail'
+                thumbnail_uri = os.path.join(settings.URI_ROOT, 'core/image/get/', thumbnail_name)
+                thumbnail_path = os.path.join(settings.MEDIA_ROOT, 'images', thumbnail_name)
+            else:
+                thumbnail_name = None
+                thumbnail_uri = None
+
+            try:
+                with PILImage.open(BytesIO(base64.b64decode(image))) as img:
+                    img.save(image_path, 'JPEG')
+                    if thumbnail:
+                        img.thumbnail(thumbnail_size)
+                        img.save(thumbnail_path, 'JPEG')
+            except OSError:
+                print('OSError')
+                continue
+            
+            saved_image = Image(
+                image_name=image_name,
+                thumbnail_name=thumbnail_name,
+                image_uri=image_uri,
+                thumbnail_uri=thumbnail_uri
+            ).save()
+
+            saved_images.append(saved_image)
+            
+        return saved_images
+
+    def delete_image(self, image):
+        try:
+            os.remove(os.path.join(settings.MEDIA_ROOT, 'images', image.image_name))
+            if image.thumbnail_name:
+                os.remove(os.path.join(settings.MEDIA_ROOT, 'images', image.thumbnail_name))
+        except FileNotFoundError:
+            return False
+        
+        return True
+
+
+class PlaceImageViewSet(BaseImageViewSet, MongoModelViewSet):
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
     permission_classes = (IsAdminUserOrReadOnly|IsManagerOrReadOnly,)
     
     def retrieve(self, request, file_name=None):
-        file_location = os.path.join(settings.MEDIA_ROOT, 'images', file_name)
-        with open(file_location, "rb") as f:
-            return HttpResponse(f.read(), content_type="image/jpeg")
+        return HttpResponse(self.get_image(file_name), content_type="image/jpeg")
 
     def create(self, request, pk=None):
         try:
             place = Place.objects.get(id=pk)
 
             if photos := request.data.get('photos'):
-                size = (300, 200)
-                new_images = []
-                for photo in photos:
-                    name = str(uuid.uuid4())
-                    image_name = f'{name}.jpg'
-                    thumbnail_name = f'{name}.thumbnail'
-                    image_uri = os.path.join(settings.URI_ROOT, 'core/image/get/', image_name)
-                    thumbnail_uri = os.path.join(settings.URI_ROOT, 'core/image/get/', thumbnail_name)
-                    image_location = os.path.join(settings.MEDIA_ROOT, 'images', image_name)
-                    thumbnail_location = os.path.join(settings.MEDIA_ROOT, 'images', thumbnail_name)
-
-                    try:
-                        with PILImage.open(BytesIO(base64.b64decode(photo))) as img:
-                            img.save(image_location, 'JPEG')
-                            img.thumbnail(size)
-                            img.save(thumbnail_location, 'JPEG')
-                    except:
-                        Response({'message': 'OSError'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                    
-                    new_image = Image(
-                        image_name=image_name,
-                        thumbnail_name=thumbnail_name,
-                        image_uri=image_uri,
-                        thumbnail_uri=thumbnail_uri
-                    ).save()
-
-                    new_images.append(new_image)
-
-                place.photos.extend(new_images)
+                images = self.save_images(photos)
+                place.photos.extend(images)
                 place.save()
             else:
                 return Response({'message': 'You must provide any photos'}, status=status.HTTP_400_BAD_REQUEST)
@@ -129,20 +161,19 @@ class ImageViewSet(MongoModelViewSet):
     def destroy(self, request, pk=None):
         try:
             place = Place.objects.get(id=pk)
+
             if photos := request.data.get('photos'):
                 for photo_id in photos:
                     photo = self.queryset.get(id=photo_id)
-                    if photo in place.photos:
-                        try:
-                            os.remove(os.path.join(settings.MEDIA_ROOT, 'images', photo.image_name))
-                            os.remove(os.path.join(settings.MEDIA_ROOT, 'images', photo.thumbnail_name))
-                            place.photos.remove(photo)
-                        except:
-                            print("File does not exist")
+                    if photo in place.photos and self.delete_image(photo):
+                        place.photos.remove(photo)
+                        photo.delete()
+                if place.main_photo in photos:
+                    place.main_photo.delete()
+                place.save()
             else:
                 return Response({'message': 'You must provide any photos'}, status=status.HTTP_400_BAD_REQUEST)
 
-            place.save()
             serializer = PlaceSerializer(place)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except mongoengine.DoesNotExist:
