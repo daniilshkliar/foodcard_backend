@@ -1,4 +1,3 @@
-import json
 import mongoengine
 import base64
 import os
@@ -6,12 +5,10 @@ from PIL import Image as PILImage
 from io import BytesIO
 from django.conf import settings
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
-from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework_mongoengine.viewsets import ModelViewSet as MongoModelViewSet
 
 from backend.permissions import *
@@ -66,9 +63,11 @@ class PlaceViewSet(MongoModelViewSet):
     def destroy(self, request, pk=None):
         try:
             place = self.queryset.get(id=pk)
-            place.general_review.delete()
-            # delete all photos
-            place.delete()
+            place.is_active = False
+            place.save()
+            # place.general_review.delete()
+            # # delete all photos
+            # place.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except mongoengine.DoesNotExist:
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)

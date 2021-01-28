@@ -1,7 +1,9 @@
 import mongoengine_goodjson as gj
 from datetime import datetime
-from mongoengine import Document, EmbeddedDocument, fields, PULL, CASCADE, NULLIFY
+from mongoengine import Document, EmbeddedDocument, fields, PULL, NULLIFY
+
 import backend.sources as src
+from reviews.models import GeneralReview
 
 
 class Address(gj.EmbeddedDocument):
@@ -11,22 +13,15 @@ class Address(gj.EmbeddedDocument):
     coordinates = fields.GeoPointField(required=True)
 
 
-class GeneralReview(gj.Document):
-    rating = fields.DecimalField(min_value=0, max_value=5, precision=1)
-    rounded_rating = fields.IntField(min_value=0, max_value=5)
-    food = fields.DecimalField(min_value=0, max_value=5, precision=1)
-    service = fields.DecimalField(min_value=0, max_value=5, precision=1)
-    ambience = fields.DecimalField(min_value=0, max_value=5, precision=1)
-    noise = fields.StringField(max_length=10, choices=src.noise)
-    amount = fields.IntField(min_value=0, default=0)
-    distribution = fields.ListField(field=fields.IntField(min_value=0, default=0), max_length=5, default=[])
-
-
 class Image(gj.Document):
     image_name = fields.StringField()
     image_uri = fields.URLField()
     thumbnail_name = fields.StringField()
     thumbnail_uri = fields.URLField()
+
+
+class Configuration(gj.EmbeddedDocument):
+    tables = fields.ListField(fields.IntField(min_value=0), max_length=15, default=[0]*15)
 
 
 class Place(gj.Document):
@@ -40,13 +35,13 @@ class Place(gj.Document):
     phone = fields.StringField(required=True, max_length=20, unique=True)
     instagram = fields.URLField()
     website = fields.URLField()
-    operation_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7)
-    general_review = fields.ReferenceField(GeneralReview, reverse_delete_rule=NULLIFY, unique=True)
+    operation_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7, default=[[None,None]]*7)
     address = fields.EmbeddedDocumentField(Address, required=True)
     main_photo = fields.ReferenceField(Image, reverse_delete_rule=NULLIFY)
     photos = fields.ListField(fields.ReferenceField(Image, reverse_delete_rule=PULL), default=[])
+    general_review = fields.ReferenceField(GeneralReview, reverse_delete_rule=NULLIFY, unique=True)
+    configuration = fields.EmbeddedDocumentField(Configuration)
     is_active = fields.BooleanField(default=False)
-	# table2 = models.IntegerField()
 
 
 class Favorite(gj.Document):

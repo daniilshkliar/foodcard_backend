@@ -2,8 +2,6 @@ import json
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_mongoengine import serializers as mongoserializers
-from mongoengine import fields, DoesNotExist, errors
 
 from .models import *
 from core.models import *
