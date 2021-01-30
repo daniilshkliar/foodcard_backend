@@ -21,7 +21,7 @@ class Image(gj.Document):
 
 
 class Configuration(gj.EmbeddedDocument):
-    tables = fields.ListField(fields.IntField(min_value=0), max_length=15, default=[0]*15)
+    tables = fields.ListField(fields.IntField(min_value=0), max_length=10, default=[0]*10)
 
 
 class Place(gj.Document):
@@ -35,7 +35,8 @@ class Place(gj.Document):
     phone = fields.StringField(required=True, max_length=20, unique=True)
     instagram = fields.URLField()
     website = fields.URLField()
-    operation_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7, default=[[None,None]]*7)
+    timezone = fields.StringField(required=True)
+    opening_hours = fields.ListField(field=fields.ListField(field=fields.DateTimeField(default=datetime.utcnow), max_length=2), max_length=7, default=[[None,None]]*7)
     address = fields.EmbeddedDocumentField(Address, required=True)
     main_photo = fields.ReferenceField(Image, reverse_delete_rule=NULLIFY)
     photos = fields.ListField(fields.ReferenceField(Image, reverse_delete_rule=PULL), default=[])

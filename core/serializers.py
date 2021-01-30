@@ -4,6 +4,7 @@ from django.conf import settings
 from mongoengine import fields, DoesNotExist, errors
 from rest_framework import serializers
 from rest_framework_mongoengine import serializers as mongoserializers
+from timezonefinder import TimezoneFinder
 
 from .models import *
 
@@ -36,12 +37,12 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
             if main_field and field and not main_field in field:
                 raise serializers.ValidationError(f'The {main_field_title} must be in the list of selected {field_title}')
 
-        if 'operation_hours' in data:
-            if len(data['operation_hours']) != 7:
-                raise serializers.ValidationError('Operation hours must be quoted for all weekdays')
-            for day in data['operation_hours']:
+        if 'opening_hours' in data:
+            if len(data['opening_hours']) != 7:
+                raise serializers.ValidationError('opening hours must be quoted for all weekdays')
+            for day in data['opening_hours']:
                 if len(day) != 2:
-                    raise serializers.ValidationError('Operation hours must be quoted for opening and closing')
+                    raise serializers.ValidationError('opening hours must be quoted for opening and closing')
         return data
 
     def create(self, validated_data):
@@ -49,6 +50,14 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
         review = GeneralReview()
         review.save()
         place.general_review = review
+        
+        try:
+            latitude, longitude = validated_data.get('address').get('coordinates')
+            if latitude and longitude:
+                place.timezone = TimezoneFinder().timezone_at(lat=latitude, lng=longitude)
+        except AttributeError:
+            pass
+
         place.save()
         return place
 
@@ -63,6 +72,13 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
 
         if not validated_data:
             return instance
+
+        try:
+            latitude, longitude = validated_data.get('address').get('coordinates')
+            if latitude and longitude:
+                validated_data['timezone'] = TimezoneFinder().timezone_at(lat=latitude, lng=longitude)
+        except AttributeError:
+            pass
 
         instance.update(**validated_data)
         return instance.reload()
@@ -85,7 +101,7 @@ class CardSerializer(mongoserializers.DocumentSerializer):
 
     class Meta:
         model = Place
-        fields = ('title', 'main_cuisine', 'main_category', 'operation_hours', 'general_review', 'address', 'main_photo')
+        fields = ('title', 'main_cuisine', 'main_category', 'opening_hours', 'general_review', 'address', 'main_photo', 'timezone')
 
 
 class CitySerializer(mongoserializers.DocumentSerializer):
