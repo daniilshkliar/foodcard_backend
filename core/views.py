@@ -1,6 +1,7 @@
 import mongoengine
 import base64
 import os
+import json
 from PIL import Image as PILImage
 from io import BytesIO
 from django.conf import settings
@@ -23,6 +24,10 @@ class PlaceViewSet(MongoModelViewSet):
     permission_classes = (IsAdminUserOrReadOnly|ManagerUpdateOnly,)
 
     def list(self, request):
+        # places = self.queryset(is_active=True).only('title', 'main_cuisine', 'main_category', 'opening_hours', 'general_review', 'address', 'main_photo', 'timezone')
+        # places = [place.main_photo=Image.objects.get(id=place.main_photo) for place in places]
+        # data = json.loads(places.to_json())
+        # return Response(data, status=status.HTTP_200_OK)
         serializer = CardSerializer(self.queryset(is_active=True), many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -224,6 +229,7 @@ class ControlPanelViewSet(MongoModelViewSet):
 
     def list(self, request):
         if request.user.is_staff:
+            # data = json.loads(self.queryset(place=pk).to_json())
             serializer = self.get_serializer(self.queryset, many=True)
         else:
             manager = Manager.objects.get(user=request.user.id)

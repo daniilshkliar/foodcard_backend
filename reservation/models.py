@@ -1,6 +1,6 @@
 import mongoengine_goodjson as gj
-from datetime import datetime
 from mongoengine import Document, EmbeddedDocument, fields, CASCADE
+
 from core.models import Place
 
 
@@ -11,6 +11,6 @@ class Reservation(gj.Document):
     last_name = fields.StringField(max_length=50)
     # email = fields.StringField(max_length=70)
     phone = fields.StringField(max_length=20, required=True)
-    date_time = fields.DateTimeField(default=datetime.utcnow, required=True)
+    date_time = fields.DateTimeField(required=True)
     table_size = fields.IntField(min_value=1, max_value=10, required=True)
     comment = fields.StringField(max_length=300)

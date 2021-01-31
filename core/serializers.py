@@ -39,10 +39,10 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
 
         if 'opening_hours' in data:
             if len(data['opening_hours']) != 7:
-                raise serializers.ValidationError('opening hours must be quoted for all weekdays')
+                raise serializers.ValidationError('Opening hours must be quoted for all weekdays')
             for day in data['opening_hours']:
                 if len(day) != 2:
-                    raise serializers.ValidationError('opening hours must be quoted for opening and closing')
+                    raise serializers.ValidationError('Opening hours must be quoted for opening and closing')
         return data
 
     def create(self, validated_data):
