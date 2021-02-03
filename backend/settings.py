@@ -111,7 +111,6 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 EMAIL_USE_TLS = True
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_HOST_USER = 'foodcard.no.reply@gmail.com'
-EMAIL_HOST_PASSWORD = 'p98CY4y2np39eW18tyQp9Th'
 EMAIL_PORT = 587
 
 # Database
@@ -122,14 +121,12 @@ DATABASES = {
         'ENGINE': 'djongo',
         'NAME': 'foodcard',
         'CLIENT': {
-           'host': 'mongodb+srv://admin:1q2w3e4r5t@foodcard.00gwj.mongodb.net/foodcard?retryWrites=true&w=majority',
         }
     }
 }
 
 mongoengine.connect(
     db='foodcard',
-    host='mongodb+srv://admin:1q2w3e4r5t@foodcard.00gwj.mongodb.net/foodcard?retryWrites=true&w=majority'
 )
 
 # Password validation
