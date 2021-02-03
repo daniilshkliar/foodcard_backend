@@ -4,9 +4,10 @@ from authentication.models import Manager
 
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
 
+
 class IsAdminUserOrReadOnly(BasePermission):
     """
-    The request is authenticated as an admin, or is a read-only request.
+    The request is authenticated as an admin or manager.
     """
 
     def has_permission(self, request, view):

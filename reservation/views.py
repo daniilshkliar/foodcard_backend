@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework_mongoengine.viewsets import ModelViewSet as MongoModelViewSet
+from rest_framework.decorators import api_view, permission_classes
 
 from .models import *
 from .serializers import *
@@ -18,19 +19,15 @@ from core.models import Place
 class ReservationViewSet(MongoModelViewSet):
     queryset = Reservation.objects.all()
     serializer_class = ReservationSerializer
-    permission_classes = (AllowAny,)
+    permission_classes = (IsManagerOrReadOnly|IsAdminUserOrReadOnly,)
 
-    def list(self, request, pk=None):
-        data = json.loads(self.queryset(place=pk).to_json())
+    def list_by_user(self, request):
+        data = json.loads(self.queryset(user=request.user.id).to_json())
         return Response(data, status=status.HTTP_200_OK)
 
-    # def retrieve(self, request, city=None, title=None):
-    #     try:
-    #         place = self.queryset.get(title=title.capitalize(), address__city=city.capitalize(), is_active=True)
-    #         serializer = self.get_serializer(place)
-    #         return Response(serializer.data, status=status.HTTP_200_OK)
-    #     except mongoengine.DoesNotExist:
-    #         return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
+    def list_by_place(self, request, pk=None):
+        data = json.loads(self.queryset(place=pk).to_json())
+        return Response(data, status=status.HTTP_200_OK)
 
     def create(self, request, pk=None):
         try:
@@ -38,6 +35,7 @@ class ReservationViewSet(MongoModelViewSet):
             request.data['place'] = place.id
             if request.user.id:
                 request.data['user'] = request.user.id
+
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
@@ -45,34 +43,20 @@ class ReservationViewSet(MongoModelViewSet):
         except mongoengine.DoesNotExist:
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
-    # def update(self, request, pk=None):
-    #     try:
-    #         place = self.queryset.get(id=pk)
+    def update(self, request, pk=None):
+        try:
+            reservation = self.queryset.get(id=pk)
+            serializer = self.get_serializer(reservation, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This reservation does not exist'}, status=status.HTTP_404_NOT_FOUND)
 
-    #         if main_photo := request.data.pop('main_photo', None):
-    #             try:
-    #                 photo = Image.objects.get(id=main_photo)
-    #                 if photo in place.photos:
-    #                     place.main_photo = photo
-    #                     place.save()
-    #             except mongoengine.DoesNotExist:
-    #                 return Response({'message': 'This main photo does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
-    #         serializer = self.get_serializer(place, data=request.data, partial=True)
-    #         serializer.is_valid(raise_exception=True)
-    #         serializer.save()
-    #         return Response(serializer.data, status=status.HTTP_200_OK)
-    #     except mongoengine.DoesNotExist:
-    #         return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
-    # def destroy(self, request, pk=None):
-    #     try:
-    #         place = self.queryset.get(id=pk)
-    #         place.is_active = False
-    #         place.save()
-    #         # place.general_review.delete()
-    #         # # delete all photos
-    #         # place.delete()
-    #         return Response(status=status.HTTP_204_NO_CONTENT)
-    #     except mongoengine.DoesNotExist:
-    #         return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
+    def destroy(self, request, pk=None):
+        try:
+            reservation = self.queryset.get(id=pk)
+            reservation.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except mongoengine.DoesNotExist:
+            return Response({'message': 'This reservation does not exist'}, status=status.HTTP_404_NOT_FOUND)

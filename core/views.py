@@ -11,24 +11,35 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework_mongoengine.viewsets import ModelViewSet as MongoModelViewSet
+from rest_framework.pagination import PageNumberPagination
 
 from backend.permissions import *
-from .models import *   
+from .models import *
 from authentication.models import *
 from .serializers import *
+
+
+class StandardCardsPagination(PageNumberPagination):
+    page_size = 18
+    page_size_query_param = 'page_size'
+    max_page_size = 180
 
 
 class PlaceViewSet(MongoModelViewSet):
     queryset = Place.objects.all()
     serializer_class = PlaceSerializer
+    pagination_class = StandardCardsPagination
     permission_classes = (IsAdminUserOrReadOnly|ManagerUpdateOnly,)
 
     def list(self, request):
-        # places = self.queryset(is_active=True).only('title', 'main_cuisine', 'main_category', 'opening_hours', 'general_review', 'address', 'main_photo', 'timezone')
-        # places = [place.main_photo=Image.objects.get(id=place.main_photo) for place in places]
-        # data = json.loads(places.to_json())
-        # return Response(data, status=status.HTTP_200_OK)
-        serializer = CardSerializer(self.queryset(is_active=True), many=True)
+        queryset = self.queryset(is_active=True)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = CardSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = CardSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def retrieve(self, request, city=None, title=None):
@@ -70,9 +81,6 @@ class PlaceViewSet(MongoModelViewSet):
             place = self.queryset.get(id=pk)
             place.is_active = False
             place.save()
-            # place.general_review.delete()
-            # # delete all photos
-            # place.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         except mongoengine.DoesNotExist:
             return Response({'message': 'This place does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -228,8 +236,8 @@ class ControlPanelViewSet(MongoModelViewSet):
     permission_classes = (IsAdminUserOrManager,)
 
     def list(self, request):
+        # !!! implement pagination
         if request.user.is_staff:
-            # data = json.loads(self.queryset(place=pk).to_json())
             serializer = self.get_serializer(self.queryset, many=True)
         else:
             manager = Manager.objects.get(user=request.user.id)

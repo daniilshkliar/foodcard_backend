@@ -5,7 +5,7 @@ from . import views
 
 urlpatterns = [
     path('place/get/<slug:city>/<slug:title>/', views.PlaceViewSet.as_view({'get': 'retrieve'})),
-    path('place/get/all/', views.PlaceViewSet.as_view({'get': 'list'})),
+    path('place/get/', views.PlaceViewSet.as_view({'get': 'list'})),
     path('place/create/', views.PlaceViewSet.as_view({'post': 'create'})),
     path('place/update/<slug:pk>/', views.PlaceViewSet.as_view({'post': 'update'})),
     path('place/delete/<slug:pk>/', views.PlaceViewSet.as_view({'post': 'destroy'})),

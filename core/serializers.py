@@ -22,13 +22,13 @@ class ImageThumbnailSerializer(mongoserializers.DocumentSerializer):
 
 
 class PlaceSerializer(mongoserializers.DocumentSerializer):
-    main_photo = ImageThumbnailSerializer(many=False)
+    main_photo = ImageThumbnailSerializer(many=False, read_only=True)
     photos = ImageSerializer(many=True)
 
     def validate(self, data):
         if 'title' in data:
             data['title'] = data['title'].capitalize()
-
+        
         for main_field_title, field_title in (('main_category', 'categories'), ('main_cuisine', 'cuisines')):
             main_field = data.get(main_field_title)
             field = data.get(field_title)
@@ -65,20 +65,22 @@ class PlaceSerializer(mongoserializers.DocumentSerializer):
         instagram = validated_data.get('instagram')
         if instagram and instagram == "https://www.instagram.com/":
             validated_data['instagram'] = None
-
+        
         website = validated_data.get('website')
         if website and website == "http://www.none.com":
             validated_data['website'] = None
 
+        address = validated_data.get('address')
+        if address:
+            try:
+                latitude, longitude = address.get('coordinates')
+                if latitude and longitude:
+                    validated_data['timezone'] = TimezoneFinder().timezone_at(lat=latitude, lng=longitude)
+            except AttributeError:
+                pass
+
         if not validated_data:
             return instance
-
-        try:
-            latitude, longitude = validated_data.get('address').get('coordinates')
-            if latitude and longitude:
-                validated_data['timezone'] = TimezoneFinder().timezone_at(lat=latitude, lng=longitude)
-        except AttributeError:
-            pass
 
         instance.update(**validated_data)
         return instance.reload()

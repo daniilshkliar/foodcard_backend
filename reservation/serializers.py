@@ -10,7 +10,7 @@ from core.models import Place
 
 class ReservationSerializer(mongoserializers.DocumentSerializer):
     def select_table(self, place, date_time, guests, avg_time_spent):
-        table_options = [size for size in range(guests, guests + 4)]
+        table_options = [size for size in range(guests, guests + 4) if size <= 10]
         min_border = date_time - timedelta(hours=avg_time_spent)
         max_border = date_time + timedelta(hours=avg_time_spent)
         conf = place.configuration.tables
@@ -75,8 +75,9 @@ class ReservationSerializer(mongoserializers.DocumentSerializer):
         reservation.save()
         return reservation
 
-    # def update(self, instance, validated_data):
-    #    pass
+    def update(self, instance, validated_data):
+        instance.update(**validated_data)
+        return instance.reload()
 
     class Meta:
         model = Reservation

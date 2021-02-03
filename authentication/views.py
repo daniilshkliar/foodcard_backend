@@ -8,7 +8,6 @@ from django.contrib.auth.models import User
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework_simplejwt.tokens import RefreshToken, Token
 from rest_framework_mongoengine.viewsets import ModelViewSet as MongoModelViewSet
 
@@ -19,7 +18,7 @@ from .serializers import *
 class UserViewSet(MongoModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (permissions.IsAuthenticated,)
     
     def check_login(self, request):
         return Response(status=status.HTTP_200_OK)
